@@ -7,44 +7,8 @@ using namespace std;
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
+#include <time.h>
 
-static inline float S16ToFloat_(int16_t v) {
-	static const float kMaxInt16Inverse = 1.f / 32767;
-	static const float kMinInt16Inverse = 1.f / -32768;
-	return v * (v > 0 ? kMaxInt16Inverse : -kMinInt16Inverse);
-}
-int S16ToFloat(int16_t *pS16Samples , size_t nSamples, float *pFloatSamples) {
-	if (pFloatSamples == NULL || nSamples <0 || pS16Samples == NULL)
-	{
-		return -1;
-	}
-	for (size_t n = 0; n < nSamples; n++)
-	{
-		pFloatSamples[n] = S16ToFloat_(pS16Samples[n]);
-	}
-	return 0;
-}
-
-static inline int16_t FloatToS16_(float v) {
-//S16:      int16_t[-32768, 32767]
-	if (v > 0)
-		return v >= 1 ? 32767
-		: (int16_t)(v * 32767 + 0.5f);
-	return v <= -1 ? -32768
-		: (int16_t)(-v * -32768 - 0.5f);
-}
-int FloatToS16(float * pFloatSamples, size_t nSamples, int16_t *pS16Samples) {
-	
-	if (pFloatSamples == NULL || nSamples <0 || pS16Samples ==NULL)
-	{
-		return -1;
-	}
-	for (size_t n = 0; n < nSamples; n++)
-	{
-		pS16Samples[n] = FloatToS16_(pFloatSamples[n]);
-	}
-	return 0;
-}
 struct wav
 {
 	unsigned int channels;
@@ -52,49 +16,47 @@ struct wav
 	drwav_uint64 totalPCMFrameCount;	// nSamples per cahnnels
 	drwav_uint64 totalSampleCount;		// left samples + ritht samples
 	int16_t *pDataS16[2];
-	float *pDataF16[2];
+	float *pDataFloat[2];
 };
-//int16_t* wavread_s16(const char* filename, unsigned int* channelsOut, unsigned int* sampleRateOut, drwav_uint64* totalFrameCountOut) {
 int wavread(const char* filename, wav* wavfile ) {
 
-	// return a pointer of audio data which is [LRLRLRLR ...] format
-	float *pSampleF16 = drwav_open_file_and_read_pcm_frames_f32(filename, &wavfile->channels,&wavfile->sampleRate, &wavfile->totalPCMFrameCount);
+	float *pSampleFloat = drwav_open_file_and_read_pcm_frames_f32(filename, &wavfile->channels,&wavfile->sampleRate, &wavfile->totalPCMFrameCount);
 	int16_t *pSampleS16 = drwav_open_file_and_read_pcm_frames_s16(filename, &wavfile->channels, &wavfile->sampleRate, &wavfile->totalPCMFrameCount);
+	// The pointer of audio data which is [LRLRLRLR ...] format
+
 	wavfile->totalSampleCount = wavfile->totalPCMFrameCount * wavfile->channels;
 
-	if (pSampleF16 == NULL || pSampleS16 == NULL)
+	if (pSampleFloat == NULL || pSampleS16 == NULL)
 	{
 		return -1;
 	}
 	//	change audio data into [[LLLLLL][RRRRRR]]
 	if (wavfile->channels >1)
 	{
-		//wavfile->pDataS16[0] = new int16_t[wavfile->totalSampleCount]{ 0 };
-		//wavfile->pDataF16[0] = new float[wavfile->totalSampleCount]{ 0 };
 		wavfile->pDataS16[0] = (int16_t*)malloc(sizeof(int16_t) * wavfile->totalSampleCount);
-		wavfile->pDataF16[0] = (float*)malloc(sizeof(float) * wavfile->totalSampleCount);
+		wavfile->pDataFloat[0] = (float*)malloc(sizeof(float) * wavfile->totalSampleCount);
 
 		wavfile->pDataS16[1] = wavfile->pDataS16[0] + wavfile->totalPCMFrameCount;	// totalPCMFrameCount = totalSampleCount / 2
-		wavfile->pDataF16[1] = wavfile->pDataF16[0] + wavfile->totalPCMFrameCount;
+		wavfile->pDataFloat[1] = wavfile->pDataFloat[0] + wavfile->totalPCMFrameCount;
 
 		for (size_t n = 0; n < wavfile->totalPCMFrameCount; n++)
 		{
 			wavfile->pDataS16[0][n] = pSampleS16[n * 2];
 			wavfile->pDataS16[1][n] = pSampleS16[n * 2 + 1];
 
-			wavfile->pDataF16[0][n] = pSampleF16[n * 2];
-			wavfile->pDataF16[1][n] = pSampleF16[n * 2 + 1];
+			wavfile->pDataFloat[0][n] = pSampleFloat[n * 2];
+			wavfile->pDataFloat[1][n] = pSampleFloat[n * 2 + 1];
 
 		}
 		free(pSampleS16);
-		free(pSampleF16);
+		free(pSampleFloat);
 	}
 	else
 	{
 	wavfile->pDataS16[0] = pSampleS16;
 	wavfile->pDataS16[1] = NULL;
-	wavfile->pDataF16[0] = pSampleF16;
-	wavfile->pDataF16[1] = NULL;
+	wavfile->pDataFloat[0] = pSampleFloat;
+	wavfile->pDataFloat[1] = NULL;
 
 	}
 	return 0;
@@ -149,14 +111,14 @@ int wavwrite_s16(const char* filename, int16_t * const *pDataS16,size_t nSamples
 	return 0;
 
 }
-int wavwrite_f16(const char* filename, float * const *pDataF16, size_t nSamples, unsigned int nChannels, unsigned int sampleRate) {
+int wavwrite_float(const char* filename, float * const *pDataFloat, size_t nSamples, unsigned int nChannels, unsigned int sampleRate) {
 
-	if (pDataF16 == NULL )
+	if (pDataFloat == NULL )
 	{
 		printf("Input data pointer failed.\n");
 		return -1;
 	}
-	if (pDataF16[1] == NULL && nChannels >1)
+	if (pDataFloat[1] == NULL && nChannels >1)
 	{
 		printf(" Channel 2 data not found\n");
 		return -1;
@@ -166,12 +128,15 @@ int wavwrite_f16(const char* filename, float * const *pDataF16, size_t nSamples,
 
 	int16_t *pDataS16[2];
 	pDataS16[0] = tmp;
-	FloatToS16(pDataF16[0], nSamples, pDataS16[0]);
+	//FloatToS16(pDataFloat[0], nSamples, pDataS16[0]);	//drwav_f32_to_s16
+	drwav_f32_to_s16(pDataS16[0], pDataFloat[0], nSamples);
 
 	if (nChannels > 1 )
 	{
 		pDataS16[1] = tmp + nSamples;
-		FloatToS16(pDataF16[1], nSamples, pDataS16[1]);
+		//FloatToS16(pDataFloat[1], nSamples, pDataS16[1]);
+		drwav_f32_to_s16(pDataS16[1], pDataFloat[1], nSamples);
+
 	}
 	else
 	{
@@ -192,19 +157,59 @@ int wavwrite_f16(const char* filename, float * const *pDataF16, size_t nSamples,
 }
 int main()
 {
+	// test case 
 	wav mywav;
-	wavread("dukou_noReverb.wav", &mywav);
-	cout << mywav.channels << endl;
-	cout << mywav.totalPCMFrameCount << endl;
+	wavread("08 - David Elias - Crossing - Morning Light Western Town (DSD64 2.0).wav", &mywav);
 
 
 	wavwrite_s16("test my writter s16 ch1.wav", mywav.pDataS16, mywav.totalPCMFrameCount, 1, mywav.sampleRate);
 	wavwrite_s16("test my writter s16 ch2.wav", mywav.pDataS16, mywav.totalPCMFrameCount, 2, mywav.sampleRate);
-	wavwrite_f16("test my writter f16 ch1.wav", mywav.pDataF16, mywav.totalPCMFrameCount, 1, mywav.sampleRate);
-	wavwrite_f16("test my writter f16 ch2.wav", mywav.pDataF16, mywav.totalPCMFrameCount, 2, mywav.sampleRate);
 
-    return 0;
+	wavwrite_float("test my writter f16 ch1.wav", mywav.pDataFloat, mywav.totalPCMFrameCount, 1, mywav.sampleRate);
+	wavwrite_float("test my writter f16 ch2.wav", mywav.pDataFloat, mywav.totalPCMFrameCount, 2, mywav.sampleRate);
+    
+	return 0;
 }
+
+
+static inline float S16ToFloat_(int16_t v) {
+	static const float kMaxInt16Inverse = 1.f / 32767;
+	static const float kMinInt16Inverse = 1.f / -32768;
+	return v * (v > 0 ? kMaxInt16Inverse : -kMinInt16Inverse);
+}
+int S16ToFloat(int16_t *pS16Samples, size_t nSamples, float *pFloatSamples) {
+	if (pFloatSamples == NULL || nSamples < 0 || pS16Samples == NULL)
+	{
+		return -1;
+	}
+	for (size_t n = 0; n < nSamples; n++)
+	{
+		pFloatSamples[n] = S16ToFloat_(pS16Samples[n]);
+	}
+	return 0;
+}
+
+static inline int16_t FloatToS16_(float v) {
+	//S16:      int16_t[-32768, 32767]
+	if (v > 0)
+		return v >= 1 ? 32767
+		: (int16_t)(v * 32767 + 0.5f);
+	return v <= -1 ? -32768
+		: (int16_t)(-v * -32768 - 0.5f);
+}
+int FloatToS16(float * pFloatSamples, size_t nSamples, int16_t *pS16Samples) {
+
+	if (pFloatSamples == NULL || nSamples < 0 || pS16Samples == NULL)
+	{
+		return -1;
+	}
+	for (size_t n = 0; n < nSamples; n++)
+	{
+		pS16Samples[n] = FloatToS16_(pFloatSamples[n]);
+	}
+	return 0;
+}
+
 
 
 //FILE *fp = NULL;
