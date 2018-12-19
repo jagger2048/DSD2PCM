@@ -66,15 +66,15 @@ int wavread(const char* filename, wav* wavfile ) {
 	{
 		return -1;
 	}
-	//wavfile->pDataS16[0] = new int16_t[wavfile->totalSampleCount]{ 0 };
-	wavfile->pDataS16[0] = pSampleS16;
-
-	//wavfile->pDataF16[0] = new float[wavfile->totalSampleCount]{ 0 };
-	wavfile->pDataF16[0] = pSampleF16;
 	//	change audio data into [[LLLLLL][RRRRRR]]
 	if (wavfile->channels >1)
 	{
-		wavfile->pDataS16[1] = wavfile->pDataS16[0] + wavfile->totalPCMFrameCount;	// ??
+		//wavfile->pDataS16[0] = new int16_t[wavfile->totalSampleCount]{ 0 };
+		//wavfile->pDataF16[0] = new float[wavfile->totalSampleCount]{ 0 };
+		wavfile->pDataS16[0] = (int16_t*)malloc(sizeof(int16_t) * wavfile->totalSampleCount);
+		wavfile->pDataF16[0] = (float*)malloc(sizeof(float) * wavfile->totalSampleCount);
+
+		wavfile->pDataS16[1] = wavfile->pDataS16[0] + wavfile->totalPCMFrameCount;	// totalPCMFrameCount = totalSampleCount / 2
 		wavfile->pDataF16[1] = wavfile->pDataF16[0] + wavfile->totalPCMFrameCount;
 
 		for (size_t n = 0; n < wavfile->totalPCMFrameCount; n++)
@@ -86,16 +86,32 @@ int wavread(const char* filename, wav* wavfile ) {
 			wavfile->pDataF16[1][n] = pSampleF16[n * 2 + 1];
 
 		}
+		free(pSampleS16);
+		free(pSampleF16);
+	}
+	else
+	{
+	wavfile->pDataS16[0] = pSampleS16;
+	wavfile->pDataS16[1] = NULL;
+	wavfile->pDataF16[0] = pSampleF16;
+	wavfile->pDataF16[1] = NULL;
+
 	}
 	return 0;
 }
 int wavwrite_s16(const char* filename, int16_t * const *pDataS16,size_t nSamples,unsigned int nChannels,unsigned int sampleRate) {
+	
 	drwav_data_format format;
 	format.container = drwav_container_riff;     // <-- drwav_container_riff = normal WAV files, drwav_container_w64 = Sony Wave64.
 	format.format = DR_WAVE_FORMAT_PCM;          // <-- Any of the DR_WAVE_FORMAT_* codes.
 	format.channels = nChannels;
 	format.sampleRate = sampleRate;
 	format.bitsPerSample = 16;
+	if (nChannels > 1 && pDataS16[1] == NULL)
+	{
+		printf(" Channel 2 data not found\n");
+		return -1;
+	}
 	drwav* pWav = drwav_open_file_write(filename, &format);
 	if (pWav == NULL)
 	{
@@ -103,30 +119,28 @@ int wavwrite_s16(const char* filename, int16_t * const *pDataS16,size_t nSamples
 	}
 	if (nChannels > 1 )
 	{
-		int16_t tmp = 0;
-		//int16_t *data = new int16_t[nSamples * 2]{};
-		int16_t *data = (int16_t *) malloc( sizeof(int16_t) * nSamples * 2);
+		int16_t *data = (int16_t *) malloc( sizeof(int16_t) * nSamples * 2 ); // nSamples is number per channels 
 
 		for (size_t n = 0; n < nSamples ; n++)
 		{
 			data[n * 2] = pDataS16[0][n];		// even part left channel
 			data[n * 2 + 1] = pDataS16[1][n];	//  odd part, ritht channel
 		}
-		drwav_uint64 samplesWritten = drwav_write_pcm_frames(pWav, nSamples, data);
-		//drwav_uint64 samplesWritten = drwav_write_pcm_frames(pWav, nSamples, pDataS16[0]);
-
-		//delete[] data;
+		//drwav_uint64 samplesWritten = drwav_write_pcm_frames(pWav, nSamples, data);
+		drwav_uint64 samplesWritten = drwav_write_raw(pWav, nSamples * nChannels * 16/8, data);
+		if (samplesWritten != nSamples * nChannels * 16 / 8)
+		{
+			printf("written 2ch failed\n");
+		}
 		free(data);
-
 	}
 	else
 	{
-		//drwav_uint64 samplesWritten = drwav_write_pcm_frames(pWav, nSamples, pDataS16[0]);
 		//drwav_uint64 samplesWritten = drwav_write_pcm_frames(pWav, nSamples, pDataS16[0]);	// convert
 		drwav_uint64 samplesWritten = drwav_write_raw(pWav, nSamples * 2 , pDataS16[0]);	// convert
-		if (samplesWritten != nSamples)
+		if (samplesWritten != nSamples * 2)
 		{
-			printf("written failed\n");
+			printf("written 1ch failed\n");
 			//return -1;
 		}
 	}
@@ -135,62 +149,59 @@ int wavwrite_s16(const char* filename, int16_t * const *pDataS16,size_t nSamples
 	return 0;
 
 }
+int wavwrite_f16(const char* filename, float * const *pDataF16, size_t nSamples, unsigned int nChannels, unsigned int sampleRate) {
+
+	if (pDataF16 == NULL )
+	{
+		printf("Input data pointer failed.\n");
+		return -1;
+	}
+	if (pDataF16[1] == NULL && nChannels >1)
+	{
+		printf(" Channel 2 data not found\n");
+		return -1;
+	}
+	int16_t * tmp = (int16_t *)malloc(sizeof(int16_t) * nSamples * nChannels);
+
+
+	int16_t *pDataS16[2];
+	pDataS16[0] = tmp;
+	FloatToS16(pDataF16[0], nSamples, pDataS16[0]);
+
+	if (nChannels > 1 )
+	{
+		pDataS16[1] = tmp + nSamples;
+		FloatToS16(pDataF16[1], nSamples, pDataS16[1]);
+	}
+	else
+	{
+		pDataS16[1] = NULL;
+	}
+
+
+	int error = wavwrite_s16(filename, pDataS16, nSamples, nChannels, sampleRate);
+
+	free(tmp);
+
+	if (error != 0)
+	{
+		printf("Output float wav failed\n");
+		return -1;
+	}
+	return 0;
+}
 int main()
 {
-	unsigned int channels;
-	unsigned int sampleRate;
-	drwav_uint64 totalPCMFrameCount;
-	drwav_uint64 totalSampleCount;
-
-	float* pSampleData = drwav_open_file_and_read_pcm_frames_f32("audioCut_2.wav", &channels, &sampleRate, &totalPCMFrameCount);
-	//"dukou_noReverb.wav"
-	if (pSampleData == NULL) {
-		cout << "can not open the file";
-		return -1;
-		// Error opening and reading WAV file.
-	}
-	totalSampleCount = channels * totalPCMFrameCount;
-
 	wav mywav;
-	wavread("audioCut_2.wav", &mywav);
+	wavread("dukou_noReverb.wav", &mywav);
 	cout << mywav.channels << endl;
 	cout << mywav.totalPCMFrameCount << endl;
 
-	for (size_t n = 0; n < totalPCMFrameCount; n++)
-	{
-		cout << n << " : ";
-		cout << mywav.pDataF16[0][n] ;
-		if (mywav.channels >1)
-		{
-			cout<<" - "<<mywav.pDataF16[1][n];
-		}
-		cout << endl;
-	}
-	// test 2018年12月18日18:56:34
 
-
-	int16_t *pOutput = new int16_t[totalSampleCount]{};
-	FloatToS16(pSampleData, totalSampleCount, pOutput);
-
-    drwav_data_format format;
-    format.container = drwav_container_riff;     // <-- drwav_container_riff = normal WAV files, drwav_container_w64 = Sony Wave64.
-    format.format = DR_WAVE_FORMAT_PCM;          // <-- Any of the DR_WAVE_FORMAT_* codes.
-    format.channels = 2;
-    format.sampleRate = 44100;
-    format.bitsPerSample = 16;
-    drwav* pWav = drwav_open_file_write("recording v4.wav", &format);
-
-	drwav_uint64 samplesWritten = drwav_write_pcm_frames(pWav, totalPCMFrameCount  , pOutput);
-	//drwav_uint64 samplesWritten = drwav_write_raw(pWav, totalSampleCount * 2, pOutput);// bytesToWrite = sample * bitsPerSample / 8  * channels = totalPCMFrameCount * bitsPerSample / 8  * channels
-
-	cout << samplesWritten << endl;
-
-
-	//wavwrite_s16("test my writter.wav", mywav.pDataS16, mywav.totalPCMFrameCount, 1, mywav.sampleRate);
-	wavwrite_s16("test my writter.wav", mywav.pDataS16, mywav.totalPCMFrameCount, 1, mywav.sampleRate);
-
-	drwav_close(pWav);
-	drwav_free(pSampleData);
+	wavwrite_s16("test my writter s16 ch1.wav", mywav.pDataS16, mywav.totalPCMFrameCount, 1, mywav.sampleRate);
+	wavwrite_s16("test my writter s16 ch2.wav", mywav.pDataS16, mywav.totalPCMFrameCount, 2, mywav.sampleRate);
+	wavwrite_f16("test my writter f16 ch1.wav", mywav.pDataF16, mywav.totalPCMFrameCount, 1, mywav.sampleRate);
+	wavwrite_f16("test my writter f16 ch2.wav", mywav.pDataF16, mywav.totalPCMFrameCount, 2, mywav.sampleRate);
 
     return 0;
 }
