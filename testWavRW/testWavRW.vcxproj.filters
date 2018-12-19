@@ -23,5 +23,8 @@
     <ClInclude Include="dr_wav.h">
       <Filter>源文件</Filter>
     </ClInclude>
+    <ClInclude Include="wavfile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
