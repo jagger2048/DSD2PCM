@@ -20,6 +20,8 @@ using namespace std;
 // https://www.oppodigital.com/hra/dsd-by-davidelias.aspx
 ///////////////////////////
 
+// https://samplerateconverter.com/content/free-samples-dsf-audio-files  dsf demo files.
+
 struct DSD
 {	
 	// uint64_t  a 8 bytes,64 bits unsigned int, 
@@ -53,31 +55,94 @@ struct DSD
 int main()
 {
 	FILE *fp = NULL;
-	fopen_s(&fp, "08 - David Elias - Crossing - Morning Light Western Town (DSD64 2.0).dsf","rb");
+	fopen_s(&fp, "sine-176400hz-100hz-15s-D64-2.8mhz.dsf","rb");
 	assert(fp != NULL);
 
 	DSD dsdfile;
 	cout << sizeof(dsdfile) << endl;
 	fpos_t fpos;
+	fread( &dsdfile.dsd_chunk_header, 84, 1, fp );
 	fgetpos(fp, &fpos);
-	cout << fpos << endl;
-	fread( &dsdfile.dsd_chunk_header, 92, 1, fp );
-	fgetpos(fp, &fpos);
-	cout << fpos << endl;
-	char* pSampleData = 0;
+
+	fread(&dsdfile.data_size, sizeof(dsdfile.data_size), 1, fp);
+
+
+	uint8_t* pSampleData = 0;
 	//fsetpos()
-	pSampleData = new char[dsdfile.data_size];
-	//fread(pSampleData, dsdfile.data_size, 1, fp);
+	unsigned int nSamples = dsdfile.data_size - 12;
 
-	char pp[4096] = {};
-	fread(pp, 4096, 1, fp);
-
-	for (size_t i = 0; i < 100; i++)
+	if (nSamples != dsdfile.sample_count / 8 * dsdfile.channel_num)
 	{
-		cout<<pp[i] << endl;
+		printf("Samples not match\n");
+		return -1;
 	}
-	
+
+	cout << "Has total " << nSamples << " bytes to be read.\n";
+
+	pSampleData = new uint8_t[nSamples]; // chn = 2
+
+	fread(pSampleData, nSamples, 1, fp);
+
+	// general a 352.8khz 8 bit-per-sample wav file.
+
+	// 生成 88.2khz  ,352.8 176, 88.2
+	uint16_t  nStep = 32 / 8;	// f64->f2 how man bytes to skip after each sample calc,相当于抽取
+
+	uint8_t *ch1 = new uint8_t[ nSamples / 2]{0};
+	uint8_t *ch2 = new uint8_t[ nSamples / 2]{0};
+
+	cout << dsdfile.channel_num << endl;
+	cout << dsdfile.block_per_channel << endl;
+
+	for (size_t i = 0; i < nSamples / 2 / 4096; i++)	// chn 2, 4096 is block size
+	{
+			ch1[i] = pSampleData[ i * 2 * 4096  ];
+			ch2[i] = pSampleData[ i * 2  * 4096 + 1];
+
+	}
+
+	unsigned samples_per_ch = nSamples / 2 / nStep;	// 2 is channel
+	uint8_t *pOut_882_u8 = new uint8_t[samples_per_ch ];
+
+	// 抽取 
+	for (size_t n = 0; n < samples_per_ch; n++)
+	{
+		pOut_882_u8[n] = ch1[ n * nStep];
+	}
+	int16_t *pOut_882 = new int16_t[samples_per_ch ];
+
+	drwav_u8_to_s16(pOut_882, pOut_882_u8, samples_per_ch );
+
+
+	for (size_t i = 100; i > 0; --i)
+	{
+		cout << pOut_882[samples_per_ch - i] << endl;
+	}
+
+
+	//drwav_data_format format;
+	//format.container = drwav_container_riff;     // <-- drwav_container_riff = normal WAV files, drwav_container_w64 = Sony Wave64.
+	//format.format = DR_WAVE_FORMAT_PCM;          // <-- Any of the DR_WAVE_FORMAT_* codes.
+	//format.channels = 1;
+	//format.sampleRate = 44100 * 2;
+	//format.bitsPerSample = 16;
+
+	//drwav* pWav = drwav_open_file_write(" test DSD mono 882 - v2 .wav", &format);
+	////drwav_uint64 samplesWritten = drwav_write_raw(pWav, nSamples /2 , ch1);	// convert
+	//drwav_uint64 samplesWritten = drwav_write_raw(pWav, samples_per_ch / 4, pOut_882);	// convert
+	//cout << "Written " << samplesWritten << endl;
+
+	wavwrite_s16("test DSD mono 882 - v2 .wav", &pOut_882, samples_per_ch , 1, 44100*2);
+
+
 	fclose(fp);
+
+
+
+
+
+
+
 
 	// wavfile write read test case 
 	//wav mywav;
