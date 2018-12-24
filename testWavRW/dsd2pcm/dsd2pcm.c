@@ -33,7 +33,7 @@ Additions (c) Adrian Smith, 2013 under same licence terms:
 - expose precalc function as dsd2pcm_precalc to allow it to be initalised
 
  */
-
+#pragma once
 #include <stdlib.h>
 #include <string.h>
 

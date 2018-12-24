@@ -27,7 +27,7 @@ authors and should not be interpreted as representing official policies, either 
 or implied, of Sebastian Gesemann.
 
  */
-
+#pragma once
 #include <stdlib.h>
 #include <string.h>
 

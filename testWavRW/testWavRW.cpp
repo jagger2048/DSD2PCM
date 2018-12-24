@@ -32,6 +32,11 @@ using namespace std;
 ///////////////////////////
 
 // https://samplerateconverter.com/content/free-samples-dsf-audio-files  dsf demo files.
+
+using std::vector;
+using std::cin;
+using std::cout;
+using std::cerr;
 namespace {
 
 	const float my_ns_coeffs[] = {
@@ -76,10 +81,7 @@ namespace {
 
 } // anonymous namespace
 
-using std::vector;
-using std::cin;
-using std::cout;
-using std::cerr;
+
 struct DSD
 {	
 	// uint64_t  a 8 bytes,64 bits unsigned int, 
@@ -155,7 +157,7 @@ int main()
 
 	uint8_t* pSampleData = 0;
 	//fsetpos()
-	unsigned int nSamples = dsdfile.data_size - 12;
+	unsigned int nSamples = dsdfile.data_size - 12;		// 数据区总共的大小，每通道为 nSamples / nCh
 
 	if (nSamples != dsdfile.sample_count / 8 * dsdfile.channel_num)
 	{
@@ -165,107 +167,108 @@ int main()
 
 	cout << "Has total " << nSamples << " bytes to be read.\n";
 
-	pSampleData = new uint8_t[nSamples]; // chn = 2
+	pSampleData = new uint8_t[nSamples]{};				// 初始化
 
-	fread(pSampleData, nSamples, 1, fp);
+	fread(pSampleData, nSamples, 1, fp);				// 读取
+	// ========== 这些是原先的测试 ==========//
+	//uint8_t *ch1 = new uint8_t[nSamples / 2]{ 0 };
+	//uint8_t *ch2 = new uint8_t[nSamples / 2]{ 0 };
+
+	//cout << dsdfile.channel_num << endl;
+	//cout << dsdfile.block_per_channel << endl;
+
+	//for (size_t i = 0; i < nSamples / 2 / 4096; i++)	// chn = 2, 4096 is block size
+	//{
+	//	ch1[i] = pSampleData[i * 2 * 4096];
+	//	ch2[i] = pSampleData[i * 2 * 4096 + 1];
+
+	//}
+		// 抽取 
+	//for (size_t n = 0; n < samples_per_ch; n++)
+	//{
+	//	pOut_882_u8[n] = ch1[ n * nStep];
+	//}
+
+	//float *pOut_882 = new float[samples_per_ch] {};
+
+	// FIR   转化，从 DSD 到 PCM  待补充
+	
+	// ========== 以下解码测试 ==========//
 
 	// general a 352.8khz 8 bit-per-sample wav file.
-	const int block = 16384;		// 4096 * 4 for 352
+
+	const int block = 16384;							// 4096 * 4 for 352 8 bit
 	int channels = 2;
 	int lsbitfirst = 1;		// lsm
-	int bits = 16;			// 
-
-
+	int bits = 16;			// 24 32 也可以
 
 	// 生成 88.2khz , 352.8 176, 88.2
-	uint16_t  nStep = 32 / 8;	// f64->f2 how man bytes to skip after each sample calc,相当于抽取
+	uint16_t  nStep = 32 / 8;	// 4, f64->f2 how man bytes to skip after each sample calc,相当于抽取
 
-	uint8_t *ch1 = new uint8_t[ nSamples / 2]{0};
-	uint8_t *ch2 = new uint8_t[ nSamples / 2]{0};
-
-	cout << dsdfile.channel_num << endl;
-	cout << dsdfile.block_per_channel << endl;
-
-	for (size_t i = 0; i < nSamples / 2 / 4096; i++)	// chn = 2, 4096 is block size
-	{
-			ch1[i] = pSampleData[ i * 2 * 4096  ];
-			ch2[i] = pSampleData[ i * 2  * 4096 + 1];
-
-	}
-
-	unsigned samples_per_ch = nSamples / 2 / nStep;			// 2 is channel smaples per channel
+	unsigned samples_per_ch = nSamples / 2 / nStep;				// 2 is channel smaples per channel
 	uint8_t *pOut_882_u8 = new uint8_t[samples_per_ch ];
 	uint8_t *pOut_882_u8_out = new uint8_t[samples_per_ch ];
 
-	// 抽取 
-	for (size_t n = 0; n < samples_per_ch; n++)
-	{
-		pOut_882_u8[n] = ch1[ n * nStep];
-	}
-
-	float *pOut_882 = new float[samples_per_ch] {};
-
-	// FIR   转化，从 DSD 到 PCM  待补充
-
-
-	dsd2pcm_ctx *d2p = dsd2pcm_init();
-
-	//for (size_t i = 0; i < samples_per_ch ; i++)
-	//{
-		//uint8_t tmp = pOut_882_u8[i];
-
-
 	int bytespersample = bits / 8;
 	vector<dxd> dxds(channels);
+
 	//vector<noise_shaper> ns;
+
 	//if (bits == 16) {
 	//	ns.resize(channels, noise_shaper(my_ns_soscount, my_ns_coeffs));
 	//}
-	vector<unsigned char> dsd_data(block * channels);
+	vector<unsigned char> dsd_data(block * channels);		// 这个是每一帧的
 	vector<float> float_data(block);
 	
 	vector<unsigned char> pcm_data(block * channels * bytespersample);
 	char * const dsd_in = reinterpret_cast<char*>(&dsd_data[0]);
 	char * const pcm_out = reinterpret_cast<char*>(&pcm_data[0]);
 
-	float *float_out[2] = {};
+	float *float_out[2] = {};							// 双声道 输出
 	float_out[0] = new float[nSamples / 2]{};
 	float_out[1] = new float[nSamples / 2]{};
 
-	//fread(pSampleData, nSamples, 1, fp);
+
+	int16_t *pOut_s16 = new int16_t[nSamples / 2];
+
 	//while (cin.read(dsd_in, block * channels)) {
-	for (size_t n = 0; n < nSamples;n += block * channels) {
+	for (size_t n = 0;	n < nSamples;	n += block * channels) {
 
-
-		memcpy(dsd_in, pSampleData + n, block * channels);
+		memcpy(dsd_in, pSampleData + n, block * channels);		//	dsd_in -> dsd_data,用另一个指针而不是直接 &
 
 		for (int c = 0; c<channels; ++c) {
+
 			dxds[c].translate(block, &dsd_data[0] + c, channels,
 				lsbitfirst,
 				&float_data[0], 1);
 
 			//float_out.
 
-			memcpy(float_out + c, &float_data[0], block);
+			memcpy(float_out[c]+ block, &float_data[0], block);
 
 
 			//unsigned char * out = &pcm_data[0] + c * bytespersample;
 
 			//if (bits == 16) {
-			//	//for (int s = 0; s<block; ++s) {
-			//	//	float r = float_data[s] * 32768 + ns[c].get();
-			//	//	long smp = clip(-32768, myround(r), 32767);
-			//	//	ns[c].update(clip(-1, smp - r, 1));
-			//	//	write_intel16(out, smp);
-			//	//	out += channels * bytespersample;
-			//	//}
+			//	for (int s = 0; s<block; ++s) {
+			//		float r = float_data[s] * 32768 + ns[c].get();
+			//		long smp = clip(-32768, myround(r), 32767);
+			//		ns[c].update(clip(-1, smp - r, 1));
+
+			//		//write_intel16(out, smp);
+			//		write_intel16( (unsigned char*)&pOut_s16 + n + s, smp);
+
+			//		//out += channels * bytespersample;
+			//	}
 			//}
 			//else {
 			//	for (int s = 0; s<block; ++s) {
 			//		float r = float_data[s] * 8388608;
 			//		long smp = clip(-8388608, myround(r), 8388607);
-			//		write_intel24(out, smp);
-			//		out += channels * bytespersample;
+
+			//		//write_intel24(out, smp);
+
+			//		//out += channels * bytespersample;
 			//	}
 			//}
 		}
@@ -273,18 +276,14 @@ int main()
 	}
 
 
-
-
-	//}
-
-	//wavwrite_s16("test DSD mono 882 - v33 .wav", &pOut_882, samples_per_ch , 1, 44100*2);
-	//float_out
-
-	wavwrite_float("v2 d2p - DSD mono 882  .wav", float_out, samples_per_ch , 1, 44100*2);
+	wavwrite_float("v3 d2p - DSD mono 352  .wav", float_out, samples_per_ch , 1, 44100*8);
+	//wavwrite_s16("v3 d2p - DSD mono 352  .wav", &pOut_s16, nSamples / 2, 1, 44100*8);
 
 
 	//fclose(fp);
-	dsd2pcm_destroy(d2p);
+	//dsd2pcm_ctx *d2p = dsd2pcm_init();
+
+	//dsd2pcm_destroy(d2p);
 
 	return 0;
 }

@@ -27,7 +27,7 @@ authors and should not be interpreted as representing official policies, either 
 or implied, of Sebastian Gesemann.
 
  */
-
+#pragma once
 #ifndef DSD2PCM_HXX_INCLUDED
 #define DSD2PCM_HXX_INCLUDED
 

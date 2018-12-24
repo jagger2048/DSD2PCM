@@ -27,7 +27,7 @@ authors and should not be interpreted as representing official policies, either 
 or implied, of Sebastian Gesemann.
 
  */
-
+#pragma once
 #ifndef NOISE_SHAPE_HXX_INCLUDED
 #define NOISE_SHAPE_HXX_INCLUDED
 
