@@ -1,4 +1,4 @@
-// WAV audio loader and writer. Public domain. See "unlicense" statement at the end of this file.
+﻿// WAV audio loader and writer. Public domain. See "unlicense" statement at the end of this file.
 // dr_wav - v0.9.0 - 2018-12-16
 //
 // David Reid - mackron@gmail.com

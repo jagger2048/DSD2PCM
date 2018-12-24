@@ -18,12 +18,30 @@
     <ClCompile Include="testWavRW.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="dsd2pcm\dsd2pcm.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="dsd2pcm\noiseshape.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dr_wav.h">
       <Filter>源文件</Filter>
     </ClInclude>
     <ClInclude Include="wavfile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dsd2pcm\dsd2pcm.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dsd2pcm\dsd2pcm.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dsd2pcm\noiseshape.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dsd2pcm\noiseshape.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -90,7 +90,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\Repository\dr_library\testWavRW\testWavRW;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\Repository\dr_library\testWavRW\testWavRW;$(ProjectDir)dsd2pcm\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -148,10 +148,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="dsd2pcm\dsd2pcm.c" />
+    <ClCompile Include="dsd2pcm\noiseshape.c" />
     <ClCompile Include="testWavRW.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dr_wav.h" />
+    <ClInclude Include="dsd2pcm\dsd2pcm.h" />
+    <ClInclude Include="dsd2pcm\dsd2pcm.hpp" />
+    <ClInclude Include="dsd2pcm\noiseshape.h" />
+    <ClInclude Include="dsd2pcm\noiseshape.hpp" />
     <ClInclude Include="wavfile.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
