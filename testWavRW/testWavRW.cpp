@@ -59,7 +59,7 @@ int main()
 		return -1;
 	}
 
-	cout << "Has total " << nSamples << " bytes to be read and decode\n";
+	cout << "Has total " << nSamples << " bytes to be read and decoded.\n";
 
 	pSampleData = new uint8_t[nSamples]{};				// 初始化
 
@@ -98,9 +98,10 @@ int main()
 	char * const dsd_in = reinterpret_cast<char*>(&dsd_data[0]);
 	char * const pcm_out = reinterpret_cast<char*>(&pcm_data[0]);
 
-	float *float_out[2] = {};							// 双声道 输出
-	float_out[0] = new float[nSamples / 2]{};
-	float_out[1] = new float[nSamples / 2]{};
+	//float *float_out[2] = {};							// 双声道 输出
+	//float_out[0] = new float[nSamples / 2]{};		// 对于 352 8bits 的来说，每一个通道是 nSamples / nCh
+	//float_out[1] = new float[nSamples / 2]{};
+	vector<vector<float>> float_out(2);
 
 
 	int16_t *pOut_s16 = new int16_t[nSamples / 2];
@@ -118,8 +119,11 @@ int main()
 
 			//float_out.
 
-			memcpy(float_out[c]+ n / (channels +1), &float_data[0], block * sizeof(float));
-
+			//memcpy(float_out[c]+ n / (channels +1), &float_data[0], block * sizeof(float));
+			for (size_t i = 0; i < float_data.size(); i++)
+			{
+				float_out.at(c).push_back(float_data.at(i));
+			}
 
 
 			//unsigned char * out = &pcm_data[0] + c * bytespersample;
@@ -150,11 +154,14 @@ int main()
 		////cout.write(pcm_out, block*channels*bytespersample);
 	}
 
-	//for (size_t i = 0; i < block; i++)
+	//for (size_t i = 0; i < 100; i++)
 	//{
-	//	cout << float_data.at(i) << endl;
+	//	cout << float_data.at(float_data.size()/2 - i -1) << endl;
 	//}
-	wavwrite_float("v6 d2p - DSD mono 352  .wav", float_out, nSamples /2 , 1, 44100*8);
+
+	float *pTmp = new float[nSamples / 2];
+	memcpy(pTmp, &float_out.at(0).at(0), sizeof(float) * float_out.at(0).size());
+	wavwrite_float("v7 d2p - DSD mono 352  .wav", &pTmp, nSamples /2 , 1, 44100*8);
 	//wavwrite_s16("v3 d2p - DSD mono 352  .wav", &pOut_s16, nSamples / 2, 1, 44100*8);
 
 
