@@ -26,22 +26,25 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="dr_wav.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
     <ClInclude Include="wavfile.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="dsd2pcm\dsd2pcm.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="dsd2pcm\dsd2pcm.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="dsd2pcm\noiseshape.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="dsd2pcm\noiseshape.hpp">
-      <Filter>源文件</Filter>
+      <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="dsd2pcm\dsd2pcm.hpp">
-      <Filter>源文件</Filter>
-    </ClInclude>
-    <ClInclude Include="dr_wav.h">
+    <ClInclude Include="tmp.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

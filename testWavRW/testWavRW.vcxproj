@@ -158,6 +158,7 @@
     <ClInclude Include="dsd2pcm\dsd2pcm.hpp" />
     <ClInclude Include="dsd2pcm\noiseshape.h" />
     <ClInclude Include="dsd2pcm\noiseshape.hpp" />
+    <ClInclude Include="tmp.h" />
     <ClInclude Include="wavfile.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

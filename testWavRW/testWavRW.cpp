@@ -19,6 +19,7 @@ using namespace std;
 
 #include "dsd2pcm.hpp"
 
+#include "tmp.h"
 // ref
 //https://github.com/Kharabadze/DSD4Winamp	
 //https://github.com/amikey/SFBAudioEngine/tree/8e69d2590ea109879cc31b31429a4f57b4f352ef/Decoders
@@ -33,120 +34,13 @@ using namespace std;
 
 // https://samplerateconverter.com/content/free-samples-dsf-audio-files  dsf demo files.
 
-using std::vector;
-using std::cin;
-using std::cout;
-using std::cerr;
-namespace {
 
-	const float my_ns_coeffs[] = {
-		//     b1           b2           a1           a2
-		-1.62666423,  0.79410094,  0.61367127,  0.23311013,  // section 1
-		-1.44870017,  0.54196219,  0.03373857,  0.70316556   // section 2
-	};
-
-	const int my_ns_soscount = sizeof(my_ns_coeffs) / (sizeof(my_ns_coeffs[0]) * 4);
-
-	inline long myround(float x)
-	{
-		return static_cast<long>(x + (x >= 0 ? 0.5f : -0.5f));
-	}
-
-	template<typename T>
-	struct id { typedef T type; };
-
-	template<typename T>
-	inline T clip(
-		typename id<T>::type min,
-		T v,
-		typename id<T>::type max)
-	{
-		if (v<min) return min;
-		if (v>max) return max;
-		return v;
-	}
-
-	inline void write_intel16(unsigned char * ptr, unsigned word)
-	{
-		ptr[0] = word & 0xFF;
-		ptr[1] = (word >> 8) & 0xFF;
-	}
-
-	inline void write_intel24(unsigned char * ptr, unsigned long word)
-	{
-		ptr[0] = word & 0xFF;
-		ptr[1] = (word >> 8) & 0xFF;
-		ptr[2] = (word >> 16) & 0xFF;
-	}
-
-} // anonymous namespace
-
-
-struct DSD
-{	
-	// uint64_t  a 8 bytes,64 bits unsigned int, 
-	// uint32_t  a 4 bytes,32 bits unsigned int, 
-
-	char dsd_chunk_header[4];		// DSD mask
-	char chunk_size[8];				// size of this chunk [28]
-	//uint64_t chunk_size;			// size of this chunk [28] test 
-	uint64_t total_size;			// total file size
-	char pMetadataChunk[4];			// the pointer point to metadata if exist,otherwise set 0.
-									// 8?
-	char fmt_chunk_header[4];		// fmt chunk header
-	uint64_t fmt_size;				// size of this fmt chunk,usually [52] bytes
-	uint32_t fmt_version;			// gersion of this format [1]
-	uint32_t fmt_id;				// [0]: DSD raw
-	uint32_t channel_type;			// [1]:mono [1]:stereo [3]: 3 channels [4] quad [5] 4chs [6] 5chs [7] 5.1chs
-	uint32_t channel_num;			// [1]-[6] : mono~6 chs
-	uint32_t sample_rate;			//  [2822400] or [5644800] hz  64fs or 128fs
-	uint32_t bits_per_sample;		// [1] or [8]
-	uint64_t sample_count;			// samples per channels, n second data: sample count would be fs * n
-	uint32_t block_per_channel;		// fixed [4096] Bytes
-	uint32_t reverd;				// fill zero
-
-	char	data_chunk_header[4];	// [ d a t a]
-	uint64_t data_size;			// equal to [n] + 12 , n is the next [n] bytes contains data 
-	// next n bytes is the data
-	//char* pSampleData = 0;
-	// m bytes meta data chunk if have
-	
-};
-
-struct  Biquad
-{
-	float coeffs[2][3]{};
-	float state[3]{};
-};
-void biquad(Biquad *handles,float in, float &out) {
-	// wrapped methods
-	handles->state[2] = handles->state[1];
-	handles->state[1] = handles->state[0];
-	handles->state[0] = in + (-handles->coeffs[1][1]) * handles->state[1] + (-handles->coeffs[1][2]) * handles->state[2];
-	// caculate the output
-	out = handles->coeffs[0][0] * handles->state[0] + handles->coeffs[0][1] * handles->state[1] + handles->coeffs[0][2] * handles->state[2];
-}
-
-void fir(unsigned int nTaps,float *coeffs,float *state,float in,float &out) {
-
-	float sum = 0.0;
-	for (size_t i = nTaps - 1; i > 2; --i)		// 需要使用循环队列优化
-	{
-		state[i] = state[i - 1];
-	}
-	state[0] = in;
-
-	for (size_t n = 0; n < nTaps; n++)
-	{
-		sum += coeffs[n] * state[n];
-	}
-	out = sum;
-}
 
 int main()
 {
 	FILE *fp = NULL;
 	fopen_s(&fp, "sine-176400hz-100hz-15s-D64-2.8mhz.dsf","rb");
+	//fopen_s(&fp, "08 - David Elias - Crossing - Morning Light Western Town (DSD64 2.0).dsf","rb");
 	assert(fp != NULL);
 
 	DSD dsdfile;
@@ -165,33 +59,12 @@ int main()
 		return -1;
 	}
 
-	cout << "Has total " << nSamples << " bytes to be read.\n";
+	cout << "Has total " << nSamples << " bytes to be read and decode\n";
 
 	pSampleData = new uint8_t[nSamples]{};				// 初始化
 
 	fread(pSampleData, nSamples, 1, fp);				// 读取
-	// ========== 这些是原先的测试 ==========//
-	//uint8_t *ch1 = new uint8_t[nSamples / 2]{ 0 };
-	//uint8_t *ch2 = new uint8_t[nSamples / 2]{ 0 };
 
-	//cout << dsdfile.channel_num << endl;
-	//cout << dsdfile.block_per_channel << endl;
-
-	//for (size_t i = 0; i < nSamples / 2 / 4096; i++)	// chn = 2, 4096 is block size
-	//{
-	//	ch1[i] = pSampleData[i * 2 * 4096];
-	//	ch2[i] = pSampleData[i * 2 * 4096 + 1];
-
-	//}
-		// 抽取 
-	//for (size_t n = 0; n < samples_per_ch; n++)
-	//{
-	//	pOut_882_u8[n] = ch1[ n * nStep];
-	//}
-
-	//float *pOut_882 = new float[samples_per_ch] {};
-
-	// FIR   转化，从 DSD 到 PCM  待补充
 	
 	// ========== 以下解码测试 ==========//
 
@@ -203,11 +76,11 @@ int main()
 	int bits = 16;			// 24 32 也可以
 
 	// 生成 88.2khz , 352.8 176, 88.2
-	uint16_t  nStep = 32 / 8;	// 4, f64->f2 how man bytes to skip after each sample calc,相当于抽取
+	//uint16_t  nStep = 32 / 8;	// 4, f64->f2 how man bytes to skip after each sample calc,相当于抽取
 
-	unsigned samples_per_ch = nSamples / 2 / nStep;				// 2 is channel smaples per channel
-	uint8_t *pOut_882_u8 = new uint8_t[samples_per_ch ];
-	uint8_t *pOut_882_u8_out = new uint8_t[samples_per_ch ];
+	//unsigned samples_per_ch = nSamples / 2 / nStep;				// 2 is channel smaples per channel
+	//uint8_t *pOut_882_u8 = new uint8_t[samples_per_ch ];
+	//uint8_t *pOut_882_u8_out = new uint8_t[samples_per_ch ];
 
 	int bytespersample = bits / 8;
 	vector<dxd> dxds(channels);
@@ -217,10 +90,11 @@ int main()
 	//if (bits == 16) {
 	//	ns.resize(channels, noise_shaper(my_ns_soscount, my_ns_coeffs));
 	//}
-	vector<unsigned char> dsd_data(block * channels);		// 这个是每一帧的
+
+	vector<unsigned char> dsd_data(block * channels);		// 这个是每一帧的,帧长为block * channels 
 	vector<float> float_data(block);
 	
-	vector<unsigned char> pcm_data(block * channels * bytespersample);
+	vector<unsigned char> pcm_data(block * channels * bytespersample);	// 用于导出 PCM
 	char * const dsd_in = reinterpret_cast<char*>(&dsd_data[0]);
 	char * const pcm_out = reinterpret_cast<char*>(&pcm_data[0]);
 
@@ -244,7 +118,8 @@ int main()
 
 			//float_out.
 
-			memcpy(float_out[c]+ block, &float_data[0], block);
+			memcpy(float_out[c]+ n / (channels +1), &float_data[0], block * sizeof(float));
+
 
 
 			//unsigned char * out = &pcm_data[0] + c * bytespersample;
@@ -275,8 +150,11 @@ int main()
 		////cout.write(pcm_out, block*channels*bytespersample);
 	}
 
-
-	wavwrite_float("v3 d2p - DSD mono 352  .wav", float_out, samples_per_ch , 1, 44100*8);
+	//for (size_t i = 0; i < block; i++)
+	//{
+	//	cout << float_data.at(i) << endl;
+	//}
+	wavwrite_float("v6 d2p - DSD mono 352  .wav", float_out, nSamples /2 , 1, 44100*8);
 	//wavwrite_s16("v3 d2p - DSD mono 352  .wav", &pOut_s16, nSamples / 2, 1, 44100*8);
 
 
@@ -287,6 +165,44 @@ int main()
 
 	return 0;
 }
+
+// ========== 这些是原先的测试 ==========//
+//uint8_t *ch1 = new uint8_t[nSamples / 2]{ 0 };
+//uint8_t *ch2 = new uint8_t[nSamples / 2]{ 0 };
+
+//cout << dsdfile.channel_num << endl;
+//cout << dsdfile.block_per_channel << endl;
+
+//for (size_t i = 0; i < nSamples / 2 / 4096; i++)	// chn = 2, 4096 is block size
+//{
+//	ch1[i] = pSampleData[i * 2 * 4096];
+//	ch2[i] = pSampleData[i * 2 * 4096 + 1];
+
+//}
+// 抽取 
+//for (size_t n = 0; n < samples_per_ch; n++)
+//{
+//	pOut_882_u8[n] = ch1[ n * nStep];
+//}
+
+//float *pOut_882 = new float[samples_per_ch] {};
+
+// FIR   转化，从 DSD 到 PCM  待补充
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
