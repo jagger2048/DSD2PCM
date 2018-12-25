@@ -82,11 +82,11 @@ int wavwrite_s16(const char* filename, int16_t * const *pDataS16, size_t nSample
 	{
 		int16_t *data = (int16_t *)malloc(sizeof(int16_t) * nSamples * 2); // nSamples is number per channels 
 		// 修改不用插值
-		//for (size_t n = 0; n < nSamples; n++)
-		//{
-		//	data[n * 2] = pDataS16[0][n];		// even part left channel
-		//	data[n * 2 + 1] = pDataS16[1][n];	//  odd part, ritht channel
-		//}
+		for (size_t n = 0; n < nSamples; n++)
+		{
+			data[n * 2] = pDataS16[0][n];		// even part left channel
+			data[n * 2 + 1] = pDataS16[1][n];	//  odd part, ritht channel
+		}
 		//drwav_uint64 samplesWritten = drwav_write_pcm_frames(pWav, nSamples, data);
 		drwav_uint64 samplesWritten = drwav_write_raw(pWav, nSamples * nChannels * 16 / 8, data);
 		if (samplesWritten != nSamples * nChannels * 16 / 8)

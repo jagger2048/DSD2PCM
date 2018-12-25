@@ -23,6 +23,8 @@ using namespace std;
 // ref
 //https://github.com/Kharabadze/DSD4Winamp	
 //https://github.com/amikey/SFBAudioEngine/tree/8e69d2590ea109879cc31b31429a4f57b4f352ef/Decoders
+// dsd2pcm
+// stm32f7player (ffmpeg)
 ///////////////////////////
 // Samples are downloaded from:
 // http://www.ayre.com/insights_dsdvspcm.htm
@@ -35,11 +37,14 @@ using namespace std;
 // https://samplerateconverter.com/content/free-samples-dsf-audio-files  dsf demo files.
 
 
+// ref
+// https://github.com/clivem/dsdplay/blob/master/src/dsdplay.c
 
 int main()
 {
 	FILE *fp = NULL;
-	fopen_s(&fp, "sine-176400hz-100hz-15s-D64-2.8mhz.dsf","rb");
+	fopen_s(&fp, "2L-125_stereo-2822k-1b_04.dsf","rb");
+	//fopen_s(&fp, "sweep-176400hz-0-22050hz-20s-D64-2.8mhz.dsf","rb");
 	//fopen_s(&fp, "08 - David Elias - Crossing - Morning Light Western Town (DSD64 2.0).dsf","rb");
 	assert(fp != NULL);
 
@@ -56,11 +61,13 @@ int main()
 	if (nSamples != dsdfile.sample_count / 8 * dsdfile.channel_num)
 	{
 		printf("Samples not match\n");
-		return -1;
+		//return -1;
+		//nSamples = dsdfile.sample_count / 8 * dsdfile.channel_num;
 	}
 
-	cout << "Has total " << nSamples << " bytes to be read and decoded.\n";
 
+	cout << "Has total " << nSamples << " bytes to be read and decoded.\n";
+	cout << dsdfile.sample_count / 8 * dsdfile.channel_num << " errors " << nSamples << endl;
 	pSampleData = new uint8_t[nSamples]{};				// 初始化
 
 	fread(pSampleData, nSamples, 1, fp);				// 读取
@@ -70,7 +77,7 @@ int main()
 
 	// general a 352.8khz 8 bit-per-sample wav file.
 
-	const int block = 16384;							// 4096 * 4 for 352 8 bit
+	const int block = 4096;							// 4096 * 4 for 352 8 bit
 	int channels = 2;
 	int lsbitfirst = 1;		// lsm
 	int bits = 16;			// 24 32 也可以
@@ -98,32 +105,67 @@ int main()
 	char * const dsd_in = reinterpret_cast<char*>(&dsd_data[0]);
 	char * const pcm_out = reinterpret_cast<char*>(&pcm_data[0]);
 
-	//float *float_out[2] = {};							// 双声道 输出
-	//float_out[0] = new float[nSamples / 2]{};		// 对于 352 8bits 的来说，每一个通道是 nSamples / nCh
-	//float_out[1] = new float[nSamples / 2]{};
-	vector<vector<float>> float_out(2);
+	float *float_out[2] = {};							// 双声道 输出
+	float *fTmp = new float[nSamples] {};
+	float_out[0] = fTmp;		// 对于 352 8bits 的来说，每一个通道是 nSamples / nCh
+	float_out[1] = fTmp + nSamples / 2 ;
+	//vector<vector<float>> float_out(2);
 
 
-	int16_t *pOut_s16 = new int16_t[nSamples / 2];
+	//int16_t *pOut_s16 = new int16_t[nSamples / 2];
+
+	size_t index[2] = {0,0};
 
 	//while (cin.read(dsd_in, block * channels)) {
 	for (size_t n = 0;	n < nSamples;	n += block * channels) {
 
-		memcpy(dsd_in, pSampleData + n, block * channels);		//	dsd_in -> dsd_data,用另一个指针而不是直接 &
+		memcpy(dsd_in, pSampleData + n, block * channels );		//	dsd_in -> dsd_data,用另一个指针而不是直接 &
 
 		for (int c = 0; c<channels; ++c) {
 
-			dxds[c].translate(block, &dsd_data[0] + c, channels,
+			//dxds[c].translate(block, &dsd_data[0] + c, channels,
+			//	lsbitfirst,
+			//	&float_data[0], 1);
+			dxds[c].translate(block , &dsd_data[0] + c * block, 1,
 				lsbitfirst,
-				&float_data[0], 1);
+				//&float_data[0], 1);
+				float_out[c] + index[c], 1);
+			//memcpy( float_out[c]+ index[c], &float_data[0], block * sizeof(float));
+			index[c] += block ;
 
-			//float_out.
+		}
+		////cout.write(pcm_out, block*channels*bytespersample);
+	}
 
-			//memcpy(float_out[c]+ n / (channels +1), &float_data[0], block * sizeof(float));
-			for (size_t i = 0; i < float_data.size(); i++)
-			{
-				float_out.at(c).push_back(float_data.at(i));
-			}
+	for (size_t i = 0; i < 100; i++)
+	{
+		//cout << float_data.at(float_data.size()/2 - i -1) << endl;
+		cout << float_out[0][i] << endl;
+	}
+
+
+	//float *pTmp = new float[nSamples / 4]{};
+
+	//for (size_t i = 0; i < nSamples /4; i++)
+	//{
+	//	pTmp[i] = float_out[0][i*2];
+	//}
+	//wavwrite_float("v17 d2p music - DSD mono 352  .wav", &pTmp, nSamples / 4, 1, 44100*8 /2 );
+	wavwrite_float("v18 d2p music - DSD mono 352  .wav", float_out, nSamples / 2, 2, 44100*8 );
+	//wavwrite_s16("v3 d2p - DSD mono 352  .wav", &pOut_s16, nSamples / 2, 1, 44100*8);
+
+
+	fclose(fp);
+
+
+	//dsd2pcm_ctx *d2p = dsd2pcm_init();
+	//dsd2pcm_destroy(d2p);
+
+	return 0;
+}
+
+// ++++++++++++++++++  dsd2pcm 原有的
+
 
 
 			//unsigned char * out = &pcm_data[0] + c * bytespersample;
@@ -150,28 +192,7 @@ int main()
 			//		//out += channels * bytespersample;
 			//	}
 			//}
-		}
-		////cout.write(pcm_out, block*channels*bytespersample);
-	}
 
-	//for (size_t i = 0; i < 100; i++)
-	//{
-	//	cout << float_data.at(float_data.size()/2 - i -1) << endl;
-	//}
-
-	float *pTmp = new float[nSamples / 2];
-	memcpy(pTmp, &float_out.at(0).at(0), sizeof(float) * float_out.at(0).size());
-	wavwrite_float("v7 d2p - DSD mono 352  .wav", &pTmp, nSamples /2 , 1, 44100*8);
-	//wavwrite_s16("v3 d2p - DSD mono 352  .wav", &pOut_s16, nSamples / 2, 1, 44100*8);
-
-
-	//fclose(fp);
-	//dsd2pcm_ctx *d2p = dsd2pcm_init();
-
-	//dsd2pcm_destroy(d2p);
-
-	return 0;
-}
 
 // ========== 这些是原先的测试 ==========//
 //uint8_t *ch1 = new uint8_t[nSamples / 2]{ 0 };
