@@ -98,12 +98,15 @@ int main()
 	//	ns.resize(channels, noise_shaper(my_ns_soscount, my_ns_coeffs));
 	//}
 
-	vector<unsigned char> dsd_data(block * channels);		// 这个是每一帧的,帧长为block * channels 
-	vector<float> float_data(block);
+	unsigned char * dsd_data = new unsigned char[block * channels ]{};
+
+	//vector<unsigned char> dsd_data(block * channels);		// 这个是每一帧的,帧长为block * channels 
 	
 	vector<unsigned char> pcm_data(block * channels * bytespersample);	// 用于导出 PCM
-	char * const dsd_in = reinterpret_cast<char*>(&dsd_data[0]);
-	char * const pcm_out = reinterpret_cast<char*>(&pcm_data[0]);
+	//char * const dsd_in = reinterpret_cast<char*>(&dsd_data[0]);
+	//char * const pcm_out = reinterpret_cast<char*>(&pcm_data[0]);
+
+
 
 	float *float_out[2] = {};							// 双声道 输出
 	float *fTmp = new float[nSamples] {};
@@ -114,24 +117,28 @@ int main()
 
 	//int16_t *pOut_s16 = new int16_t[nSamples / 2];
 
-	size_t index[2] = {0,0};
+	size_t upIndex[2] = {0,0};
 
 	//while (cin.read(dsd_in, block * channels)) {
-	for (size_t n = 0;	n < nSamples;	n += block * channels) {
+	for (size_t n = 0;	n < nSamples;	n += block * channels ) {
 
-		memcpy(dsd_in, pSampleData + n, block * channels );		//	dsd_in -> dsd_data,用另一个指针而不是直接 &
+		memcpy(dsd_data, pSampleData + n, block * channels );		//	dsd_in -> dsd_data,用另一个指针而不是直接 &
 
+		for (size_t i = 0; i < block*channels; i++)
+		{
+			dsd_data[i] = dsd_data[i * 2];
+		}
 		for (int c = 0; c<channels; ++c) {
 
 			//dxds[c].translate(block, &dsd_data[0] + c, channels,
 			//	lsbitfirst,
 			//	&float_data[0], 1);
-			dxds[c].translate(block , &dsd_data[0] + c * block, 1,
+			dxds[c].translate(block /2 , &dsd_data[0] + c * block /2, 1,
 				lsbitfirst,
 				//&float_data[0], 1);
-				float_out[c] + index[c], 1);
+				float_out[c] + upIndex[c], 1);
 			//memcpy( float_out[c]+ index[c], &float_data[0], block * sizeof(float));
-			index[c] += block ;
+			upIndex[c] += block /2;
 
 		}
 		////cout.write(pcm_out, block*channels*bytespersample);
@@ -151,7 +158,7 @@ int main()
 	//	pTmp[i] = float_out[0][i*2];
 	//}
 	//wavwrite_float("v17 d2p music - DSD mono 352  .wav", &pTmp, nSamples / 4, 1, 44100*8 /2 );
-	wavwrite_float("v18 d2p music - DSD mono 352  .wav", float_out, nSamples / 2, 2, 44100*8 );
+	wavwrite_float("v20 d2p music - DSD mono 352  .wav", float_out, nSamples / 2, 1, 44100*8 /2 );
 	//wavwrite_s16("v3 d2p - DSD mono 352  .wav", &pOut_s16, nSamples / 2, 1, 44100*8);
 
 
