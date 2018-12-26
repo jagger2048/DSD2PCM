@@ -127,18 +127,44 @@ int wavwrite_float(const char* filename, float * const *pDataFloat, size_t nSamp
 		return -1;
 	}
 	int16_t * tmp = (int16_t *)malloc(sizeof(int16_t) * nSamples * nChannels);
+	int mallocFlag = 0;
+	if (tmp == NULL)
+	{
+		tmp = (int16_t *)malloc(sizeof(int16_t) * nSamples);
+		if (tmp == NULL) {
+			printf("Malloc error,not enough memory.\n");
+			return -1;
+		}
+		mallocFlag = 1;
+	}
 
-
-	int16_t *pDataS16[2];
+	int16_t *pDataS16[2]{};
 	pDataS16[0] = tmp;
 	//FloatToS16(pDataFloat[0], nSamples, pDataS16[0]);	//drwav_f32_to_s16
 	drwav_f32_to_s16(pDataS16[0], pDataFloat[0], nSamples);
 
 	if (nChannels > 1)
 	{
-		pDataS16[1] = tmp + nSamples;
+		if (mallocFlag !=0)
+		{
+			pDataS16[1] = (int16_t *)malloc(sizeof(int16_t) * nSamples);
+			if (pDataS16[1] == NULL)
+			{
+				printf("Malloc error, not enough memory,try to export mono data.\n");
+				//return -1;
+				nChannels = 1;
+				mallocFlag = 2;
+			}
+		}
+		else {
+			pDataS16[1] = tmp + nSamples;
+		}
+
 		//FloatToS16(pDataFloat[1], nSamples, pDataS16[1]);
-		drwav_f32_to_s16(pDataS16[1], pDataFloat[1], nSamples);
+		if (mallocFlag !=2)
+		{
+			drwav_f32_to_s16(pDataS16[1], pDataFloat[1], nSamples);
+		}
 
 	}
 	else
@@ -150,6 +176,10 @@ int wavwrite_float(const char* filename, float * const *pDataFloat, size_t nSamp
 	int error = wavwrite_s16(filename, pDataS16, nSamples, nChannels, sampleRate);
 
 	free(tmp);
+	if (mallocFlag == 1 )
+	{
+		free(pDataS16[1]);
+	}
 
 	if (error != 0)
 	{
