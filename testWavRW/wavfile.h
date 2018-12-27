@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include <stdio.h>
+#include <stdint.h>
 #include "dr_wav.h"
 // A wraped of dr_wav library for easy using.
 struct wav
@@ -81,7 +83,6 @@ int wavwrite_s16(const char* filename, int16_t * const *pDataS16, size_t nSample
 	if (nChannels > 1)
 	{
 		int16_t *data = (int16_t *)malloc(sizeof(int16_t) * nSamples * 2); // nSamples is number per channels 
-		// 修改不用插值
 		for (size_t n = 0; n < nSamples; n++)
 		{
 			data[n * 2] = pDataS16[0][n];		// even part left channel

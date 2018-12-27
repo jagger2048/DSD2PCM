@@ -150,16 +150,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="dsd2pcm\dsd2pcm.c" />
-    <ClCompile Include="dsd2pcm\noiseshape.c" />
-    <ClCompile Include="testWavRW.cpp" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dr_wav.h" />
     <ClInclude Include="dsd2pcm\dsd2pcm.h" />
-    <ClInclude Include="dsd2pcm\dsd2pcm.hpp" />
-    <ClInclude Include="dsd2pcm\noiseshape.h" />
-    <ClInclude Include="dsd2pcm\noiseshape.hpp" />
-    <ClInclude Include="tmp.h" />
+    <ClInclude Include="dsdfile.h" />
     <ClInclude Include="wavfile.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
