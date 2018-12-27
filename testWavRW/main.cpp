@@ -17,12 +17,12 @@
 // Samples are downloaded from:
 // https://samplerateconverter.com/content/free-samples-dsf-audio-files  dsf demo files.
 // https://www.oppodigital.com/hra/dsd-by-davidelias.aspx
-
+//#define RESAMPLE
 int main()
 {
 	DSD dsdfile;
-	dsd_read(&dsdfile, "sine-176400hz-100hz-15s-D64-2.8mhz.dsf");		// sine signal
-	//dsd_read(&dsdfile, "2L-125_stereo-2822k-1b_04.dsf");				// music signal
+	//dsd_read(&dsdfile, "sine-176400hz-100hz-15s-D64-2.8mhz.dsf");		// sine signal
+	dsd_read(&dsdfile, "2L-125_stereo-2822k-1b_04.dsf");				// music signal
 	//dsd_read(&dsdfile, "sweep-176400hz-0-22050hz-20s-D64-2.8mhz.dsf");	// sweep signal
 
 	// ========== Decode test ==========//
@@ -31,13 +31,35 @@ int main()
 	size_t nSamplse_per_ch = 0;
 	dsd_decode(&dsdfile, float_out_352, nSamplse_per_ch);
 
+	wavwrite_float("v01 - sweep 352k .wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8);
 	//wavwrite_float("v1 - sweep 352k .wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8);
-	wavwrite_float("v1 - sine 352k .wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8);
+	//for (size_t n = 0; n < nSamplse_per_ch/2; n++)
+	//{
+	//	float_out_352[0][n] = float_out_352[0][n * 2];
+	//}
+	////for (size_t i = 0; i < 50; i++)
+	////{
+	////	printf("%f -- %f\n",float_out_352[0][i], float_out_352[1][i*2]);
+	////}
+	//wavwrite_float("v2 - sweep 176k .wav", float_out_352, nSamplse_per_ch/2, 1, 44100 * 8/2);
 
+	//================== bitreverse test ==================//
+	//unsigned char bitreverse[256];
+	//int t, e, m, k;
+	//for (t = 0, e = 0; t < 256; ++t) {
+	//	bitreverse[t] = e;
+	//	for (m = 128; m && !((e ^= m)&m); m >>= 1)
+	//		;
+	//}
+	//unsigned t1 = 0xac&0xff;
+	//unsigned t2 = bitreverse[t1&0xff];
+	//printf("Test: %d %d", t1, t2);
+
+#ifdef RESAMPLE
 	// resample 352.8khz to 88.4khz using a FIR filter
 	unsigned int pos = 0;
 	float *float_out_884[2]{};
-	unsigned int nStep = 4;										// 352->88.4
+	unsigned int nStep = 1;										// 352->88.4
 	float_out_884[0] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
 	float_out_884[1] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
 	float outTmp = 0;
@@ -55,11 +77,14 @@ int main()
 	}
 	// output to wav
 	//wavwrite_float("v1 - sweep 882 .wav", float_out_884, nSamplse_per_ch / nStep, 1, 44100*2);
-	wavwrite_float("v1 - sine 882 .wav", float_out_884, nSamplse_per_ch / nStep, 1, 44100*2);
+	wavwrite_float("v2 - sweep 882 .wav", float_out_884, nSamplse_per_ch / 2, 1, 44100 * 4);
 
 	// Free resources
 	free(float_out_884[0]);
 	free(float_out_884[1]);
+#endif // RESAMPLE
+
+
 	
 	free(float_out_352[0]);
 

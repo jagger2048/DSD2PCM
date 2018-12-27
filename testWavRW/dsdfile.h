@@ -174,9 +174,9 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 	samples_per_ch = dsdfile->nBytes / 2;
 	size_t nFrames = dsdfile->nBytes / (block * channels);
 	size_t upIndex[2] = { 0,0 };
-
+	
 	// decode to 352khz 
-	for (size_t n = 0; n < nFrames; n++)
+	for (size_t n = 0; n < nFrames/2; n++)
 	{
 		for (int c = 0; c < channels; ++c) {
 
@@ -184,7 +184,7 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 				d2p[c],
 				block,
 				dsdfile->pSampleData + n * block * channels + c * block,
-				1,
+				2,
 				lsbitfirst,
 				pFloat_out[c] + upIndex[c],
 				1
