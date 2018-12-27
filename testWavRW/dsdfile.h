@@ -108,8 +108,19 @@ struct DSD
 int dsd_read(DSD *dsdfile, const char* file_name) {
 
 	FILE *fp = NULL;
-	fopen_s(&fp, file_name, "rb");
-	assert(fp != NULL);
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+	if (fopen_s(&fp, file_name, "rb") != 0) {
+		return -1;
+	}
+#else
+	fp = fopen(file_name, "rb");
+	if (pFile == NULL) {
+		return -1;
+	}
+#endif
+
+	//fopen_s(&fp, file_name, "rb");
+	//fp = fopen(file_name, "rb");
 	fread(dsdfile->dsd_chunk_header, 84, 1, fp);
 	fread(&dsdfile->data_size, sizeof(dsdfile->data_size), 1, fp);
 	unsigned int nSamples = dsdfile->data_size - 12;				// the total size of data, nSamples / nCh

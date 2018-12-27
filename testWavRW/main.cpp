@@ -3,20 +3,19 @@
 #define DR_WAV_IMPLEMENTATION
 #include <stdio.h>
 #include <stdint.h>
-#include <assert.h>
+//#include <assert.h>
 #include "wavfile.h"
 
 #include "dsdfile.h"
 // ref
+//	https://code.google.com/archive/p/dsd2pcm    dsd2pcm
+//	stm32f7player (ffmpeg)
 //	https://github.com/Kharabadze/DSD4Winamp	
 //	https://github.com/amikey/SFBAudioEngine/tree/8e69d2590ea109879cc31b31429a4f57b4f352ef/Decoders
 //	https://github.com/clivem/dsdplay/blob/master/src/dsdplay.c
-//	https://code.google.com/archive/p/dsd2pcm    dsd2pcm
-//	stm32f7player (ffmpeg)
 
 // Samples are downloaded from:
 // https://samplerateconverter.com/content/free-samples-dsf-audio-files  dsf demo files.
-// more sample:
 // https://www.oppodigital.com/hra/dsd-by-davidelias.aspx
 
 int main()

@@ -8,14 +8,14 @@ struct wav
 	unsigned int channels;
 	unsigned int sampleRate;
 	drwav_uint64 totalPCMFrameCount;	//	nSamples per cahnnels
-	drwav_uint64 totalSampleCount;		//	left samples + ritht samples
+	drwav_uint64 totalSampleCount;		//	left samples +drwav_open_file_and_read_pcm_frames_f32 ritht samples
 	int16_t *pDataS16[2];				//	a pointer point to the S16 format audio data || S16:int16_t[-32768, 32767] is 16 bits PCM data.
 										//	pDataS16[0] : left channel, pDataS16[1] : right channel
 	float *pDataFloat[2];				//	a pointer point to the Float format audio data || -1 ~ 1
 										//	pDataFloat[0] : left channel , pDataFloat[1] : right channel
 };
 int wavread(const char* filename, wav* wavfile) {
-	//	Read the wav files, 
+	//	Read the wav files,
 
 	float *pSampleFloat = drwav_open_file_and_read_pcm_frames_f32(filename, &wavfile->channels, &wavfile->sampleRate, &wavfile->totalPCMFrameCount);
 	int16_t *pSampleS16 = drwav_open_file_and_read_pcm_frames_s16(filename, &wavfile->channels, &wavfile->sampleRate, &wavfile->totalPCMFrameCount);
@@ -61,7 +61,7 @@ int wavread(const char* filename, wav* wavfile) {
 int wavwrite_s16(const char* filename, int16_t * const *pDataS16, size_t nSamples, unsigned int nChannels, unsigned int sampleRate) {
 
 	// write the data S16 data into 16-bits WAV files.
-	//	pDataS16 is a pointer which is stereo : [ [L pointer],[R pointer]]  || mono : [ [L pointer],[ NULL ]] 
+	//	pDataS16 is a pointer which is stereo : [ [L pointer],[R pointer]]  || mono : [ [L pointer],[ NULL ]]
 	//	Note that nSamples is the samples per channels
 
 	drwav_data_format format;
@@ -82,7 +82,7 @@ int wavwrite_s16(const char* filename, int16_t * const *pDataS16, size_t nSample
 	}
 	if (nChannels > 1)
 	{
-		int16_t *data = (int16_t *)malloc(sizeof(int16_t) * nSamples * 2); // nSamples is number per channels 
+		int16_t *data = (int16_t *)malloc(sizeof(int16_t) * nSamples * 2); // nSamples is number per channels
 		for (size_t n = 0; n < nSamples; n++)
 		{
 			data[n * 2] = pDataS16[0][n];		// even part left channel
@@ -112,9 +112,9 @@ int wavwrite_s16(const char* filename, int16_t * const *pDataS16, size_t nSample
 
 }
 int wavwrite_float(const char* filename, float * const *pDataFloat, size_t nSamples, unsigned int nChannels, unsigned int sampleRate) {
-	
+
 	//	write the data Float data into 16-bits WAV files.
-	//	pDataFloat is a pointer which is :  stereo : [ [L pointer],[R pointer]]  || mono : [ [L pointer],[ NULL ]] 
+	//	pDataFloat is a pointer which is :  stereo : [ [L pointer],[R pointer]]  || mono : [ [L pointer],[ NULL ]]
 	//	Note that nSamples is the samples per channels
 
 	if (pDataFloat == NULL)
