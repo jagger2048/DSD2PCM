@@ -21,6 +21,9 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="dsd2pcm\noiseshape.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dr_wav.h">
@@ -33,6 +36,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="dsdfile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dsd2pcm\noiseshape.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

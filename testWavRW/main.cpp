@@ -9,6 +9,7 @@
 #include "dsdfile.h"
 // ref
 //	https://code.google.com/archive/p/dsd2pcm    dsd2pcm
+
 //	stm32f7player (ffmpeg)
 //	https://github.com/Kharabadze/DSD4Winamp	
 //	https://github.com/amikey/SFBAudioEngine/tree/8e69d2590ea109879cc31b31429a4f57b4f352ef/Decoders
@@ -27,33 +28,12 @@ int main()
 
 	// ========== Decode test ==========//
 	// general a 352.8khz wav file.( f64 -> f8 )
-	float *float_out_352[2] = {};								// stereo output
+	float *float_out_352[2] = {};											// stereo output
 	size_t nSamplse_per_ch = 0;
+
 	dsd_decode(&dsdfile, float_out_352, nSamplse_per_ch);
 
-	wavwrite_float("v01 - sweep 352k .wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8);
-	//wavwrite_float("v1 - sweep 352k .wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8);
-	//for (size_t n = 0; n < nSamplse_per_ch/2; n++)
-	//{
-	//	float_out_352[0][n] = float_out_352[0][n * 2];
-	//}
-	////for (size_t i = 0; i < 50; i++)
-	////{
-	////	printf("%f -- %f\n",float_out_352[0][i], float_out_352[1][i*2]);
-	////}
-	//wavwrite_float("v2 - sweep 176k .wav", float_out_352, nSamplse_per_ch/2, 1, 44100 * 8/2);
-
-	//================== bitreverse test ==================//
-	//unsigned char bitreverse[256];
-	//int t, e, m, k;
-	//for (t = 0, e = 0; t < 256; ++t) {
-	//	bitreverse[t] = e;
-	//	for (m = 128; m && !((e ^= m)&m); m >>= 1)
-	//		;
-	//}
-	//unsigned t1 = 0xac&0xff;
-	//unsigned t2 = bitreverse[t1&0xff];
-	//printf("Test: %d %d", t1, t2);
+	wavwrite_float("v01 - music 352k .wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8 );
 
 #ifdef RESAMPLE
 	// resample 352.8khz to 88.4khz using a FIR filter

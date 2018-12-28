@@ -1,7 +1,24 @@
 #pragma once
 #include <stdio.h>
 #include <stdint.h>
+#include "noiseshape.c"
 #include "dsd2pcm.h"
+
+#define CLIP(min,v,max)  ( (v) < (min) )? (min) : ( ( (v) > (max) )? (max) : (v) )
+
+const float my_ns_coeffs[] = {
+	//     b1           b2           a1           a2
+	-1.62666423,  0.79410094,  0.61367127,  0.23311013,  // section 1
+	-1.44870017,  0.54196219,  0.03373857,  0.70316556   // section 2
+};
+
+const int my_ns_soscount = sizeof(my_ns_coeffs) / (sizeof(my_ns_coeffs[0]) * 4);
+
+inline long myround(float x)
+{
+	return (long)(x + (x >= 0 ? 0.5f : -0.5f));
+}
+
 
 const unsigned int nTaps = 48;
 float state[nTaps]{};
@@ -153,6 +170,13 @@ int dsd_read(DSD *dsdfile, const char* file_name) {
 
 int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 
+	// initialize the noise shape
+	noise_shape_ctx_s* pNs[2];
+	pNs[0] = (noise_shape_ctx_s *)malloc(sizeof(noise_shape_ctx_s));
+	pNs[1] = (noise_shape_ctx_s *)malloc(sizeof(noise_shape_ctx_s));
+	noise_shape_init(pNs[0], my_ns_soscount, my_ns_coeffs);
+	noise_shape_init(pNs[1], my_ns_soscount, my_ns_coeffs);
+
 	// initialize the decode module
 	dsd2pcm_ctx *d2p[2]{};
 	d2p[0] = dsd2pcm_init();
@@ -175,8 +199,11 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 	size_t nFrames = dsdfile->nBytes / (block * channels);
 	size_t upIndex[2] = { 0,0 };
 	
+	// test case : output a 
+
+
 	// decode to 352khz 
-	for (size_t n = 0; n < nFrames/2; n++)
+	for (size_t n = 0; n < nFrames; n++)
 	{
 		for (int c = 0; c < channels; ++c) {
 
@@ -184,20 +211,35 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 				d2p[c],
 				block,
 				dsdfile->pSampleData + n * block * channels + c * block,
-				2,
+				1,
 				lsbitfirst,
 				pFloat_out[c] + upIndex[c],
 				1
 			);
+
+			// Noise shaping
+			*(pFloat_out[c] + upIndex[c]) += noise_shape_get(pNs[c]);
+
+			long smp =CLIP(-32768, myround(*(pFloat_out[c] + upIndex[c]) ) , 32767);
+
+			noise_shape_update(pNs[c], CLIP(-1, smp - *(pFloat_out[c] + upIndex[c]) , 1) );
+
 			upIndex[c] += block;
 		}
 	}
 	dsd2pcm_destroy(d2p[0]);
 	dsd2pcm_destroy(d2p[1]);
 
+	noise_shape_destroy(pNs[0]);
+	noise_shape_destroy(pNs[1]);
+
 	samples_per_ch = upIndex[0];
 	return 0;
 }
+
+
+
+
 
 // to be deleted 
 /*
