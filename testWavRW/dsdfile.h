@@ -218,11 +218,11 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 			);
 
 			// Noise shaping
-			*(pFloat_out[c] + upIndex[c]) += noise_shape_get(pNs[c]);
+			//*(pFloat_out[c] + upIndex[c]) += noise_shape_get(pNs[c]);
 
-			long smp =CLIP(-32768, myround(*(pFloat_out[c] + upIndex[c]) ) , 32767);
+			//long smp =CLIP(-32768, myround(*(pFloat_out[c] + upIndex[c]) ) , 32767);
 
-			noise_shape_update(pNs[c], CLIP(-1, smp - *(pFloat_out[c] + upIndex[c]) , 1) );
+			//noise_shape_update(pNs[c], CLIP(-1, smp - *(pFloat_out[c] + upIndex[c]) , 1) );
 
 			upIndex[c] += block;
 		}
@@ -237,10 +237,78 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 	return 0;
 }
 
+struct FIR
+{
+	int buffer_size;
+	int buffer_mask;
+	int bpos;
+	//unsigned int half_order;
+	float *buffer;
+	float *filter_coeffs;
+};
+void FIR_Init(FIR* handles,float *half_coeffs, unsigned int half_order) {
+	//FIR *handles = (FIR*)malloc(sizeof(FIR));
+	int k = 1;
+	while (k < half_order * 2)
+	{
+		k <<= 1;
+	}
+	printf("%d \n", k);
 
+	handles->buffer_size = k;
+	handles->buffer_mask = k - 1;
+	handles->bpos = 0;
+	handles->buffer = (float *)malloc(sizeof(float) * handles->buffer_size);
+	handles->filter_coeffs = (float *)malloc(sizeof(float) * half_order);
+	//handles->half_order = half_order;
+	memset(handles->buffer, 0, sizeof(float) * handles->buffer_size);
+	memcpy(handles->filter_coeffs, half_coeffs, sizeof(float) * half_order);
+	//for (size_t n = 0; n < half_order; n++)
+	//{
+	//	handles->filter_coeffs[n] = half_coeffs[n];
+	//}
+	//return handles;
+}
+//int FIR_Create(FIR * handles,float *half_coeffs, unsigned int half_order) {
+//	handles = FIR_Init(half_coeffs,half_order);
+//	if (handles == NULL)
+//	{
+//		return -1;
+//	}
+//	return 0;
+//}
+int FIR_Process(FIR *handles,float *in,unsigned int input_offest,float *out,unsigned int out_offest,unsigned int nSample,unsigned nStep) {
+	// defalut input_offest out_offest is |0|,nStep is |1|
+	if (nSample < nStep)
+	{
+		return -1;
+	}
+	for (size_t n = 0; n < nSample; n+= nStep)
+	{
+		for (size_t step_count = 0; step_count < nStep; step_count++)
+		{
+			handles->buffer[handles->bpos + step_count] = in[input_offest++];
+		}
 
-
-
+		handles->bpos = (handles->bpos + nStep) & (handles->buffer_mask);
+		int rr = handles->bpos - handles->buffer_size;
+		int ll = rr - 1;
+		float sample = 0;
+		for (int k = 0; k < handles->buffer_size; k++) {
+			sample += handles->filter_coeffs[k] * (handles->buffer[(ll - k) & (handles->buffer_mask)] + handles->buffer[(rr + k) & (handles->buffer_mask)]);
+		}
+		out[out_offest++] = sample;
+	}
+	return 0;
+}
+int FIR_Destory(FIR* handles) {
+	if (handles != NULL)
+	{
+		free(handles->buffer);
+		free(handles->filter_coeffs);
+	}
+	return 0;
+}
 // to be deleted 
 /*
 struct  Biquad

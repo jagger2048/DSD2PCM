@@ -18,7 +18,9 @@
 // Samples are downloaded from:
 // https://samplerateconverter.com/content/free-samples-dsf-audio-files  dsf demo files.
 // https://www.oppodigital.com/hra/dsd-by-davidelias.aspx
-//#define RESAMPLE
+// http://www.2l.no/hires/index.html
+
+#define RESAMPLE
 int main()
 {
 	DSD dsdfile;
@@ -37,31 +39,71 @@ int main()
 
 #ifdef RESAMPLE
 	// resample 352.8khz to 88.4khz using a FIR filter
-	unsigned int pos = 0;
+	float fir_coeffs[24] = { 
+0.112652250850214,
+0.107032289815474,
+0.0963892125541776,
+0.0818323747814125,
+0.0648289218586615,
+0.0470040360336655,
+0.0299283330453901,
+0.0149256643933968,
+0.00292983911011809,
+- 0.00559075617177340,
+- 0.0106340875176825,
+- 0.0125973353140726,
+- 0.0121591060685235,
+- 0.0101356123884851,
+- 0.00733767381809999,
+- 0.00445254411515090,
+- 0.00196751481952750,
+- 0.000142627935256290,
+0.000970290707851763,
+0.00147365784890315,
+0.00155206306576435,
+0.00140042203044790,
+0.00116817492668589,
+0.000929727126408359 };
+	FIR *lpf_882 = (FIR*)malloc(sizeof(FIR));
+	FIR_Init(lpf_882, fir_coeffs, 24);
+
 	float *float_out_884[2]{};
-	unsigned int nStep = 1;										// 352->88.4
+	unsigned int nStep = 4;	// 352->88.4
 	float_out_884[0] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
 	float_out_884[1] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
-	float outTmp = 0;
-	unsigned int count = 0;
-	unsigned int s = 0;
-	for (size_t n = 0; n < nSamplse_per_ch; n++)
-	{
-		// 48 taps fir lpf filter,cut-off frequency = 30khz
-		outTmp = fir_smpl_circle_f32(48, float_out_352[0][n], coeffs, state, &pos);
-		if (++count == nStep)
-		{
-			float_out_884[0][n / nStep] = outTmp;		// 抽取
-			count = 0;
-		}
-	}
+
+	FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamplse_per_ch, nStep);
+
+	//for (size_t i = 0; i < 100; i++)
+	//{
+	//	printf("%f \n", float_out_884[0][i]);
+	//}
+	//FIR_Destory(lpf_882);
+
+
+
+	//unsigned int pos = 0;
+	//float outTmp = 0;
+	//unsigned int count = 0;
+	//unsigned int s = 0;
+	//for (size_t n = 0; n < nSamplse_per_ch; n++)
+	//{
+	//	// 48 taps fir lpf filter,cut-off frequency = 30khz
+	//	outTmp = fir_smpl_circle_f32(48, float_out_352[0][n], coeffs, state, &pos);
+	//	if (++count == nStep)
+	//	{
+	//		float_out_884[0][n / nStep] = outTmp;		// 抽取
+	//		count = 0;
+	//	}
+	//}
 	// output to wav
 	//wavwrite_float("v1 - sweep 882 .wav", float_out_884, nSamplse_per_ch / nStep, 1, 44100*2);
-	wavwrite_float("v2 - sweep 882 .wav", float_out_884, nSamplse_per_ch / 2, 1, 44100 * 4);
+	wavwrite_float("v6 - music 882 .wav", float_out_884, nSamplse_per_ch / nStep, 1, 44100 * 2);
 
 	// Free resources
 	free(float_out_884[0]);
 	free(float_out_884[1]);
+
 #endif // RESAMPLE
 
 

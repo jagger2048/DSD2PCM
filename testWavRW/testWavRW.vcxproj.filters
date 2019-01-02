@@ -41,5 +41,8 @@
     <ClInclude Include="dsd2pcm\noiseshape.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="mDSD2PCM.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
