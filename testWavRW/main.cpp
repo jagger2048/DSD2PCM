@@ -35,53 +35,66 @@ int main()
 
 	dsd_decode(&dsdfile, float_out_352, nSamplse_per_ch);
 
-	wavwrite_float("v01 - music 352k .wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8 );
+	//wavwrite_float("v01 - music 352k .wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8 ); // no output
 
 #ifdef RESAMPLE
 	// resample 352.8khz to 88.4khz using a FIR filter
 	float fir_coeffs[24] = { 
-0.112652250850214,
-0.107032289815474,
-0.0963892125541776,
-0.0818323747814125,
-0.0648289218586615,
-0.0470040360336655,
-0.0299283330453901,
-0.0149256643933968,
-0.00292983911011809,
-- 0.00559075617177340,
-- 0.0106340875176825,
-- 0.0125973353140726,
-- 0.0121591060685235,
-- 0.0101356123884851,
-- 0.00733767381809999,
-- 0.00445254411515090,
-- 0.00196751481952750,
-- 0.000142627935256290,
-0.000970290707851763,
-0.00147365784890315,
-0.00155206306576435,
-0.00140042203044790,
-0.00116817492668589,
-0.000929727126408359 };
+0.00314107879527084,
+0.00330234574654381,
+0.00378306745048105,
+0.00457469702499321,
+0.00566313575729732,
+0.00702898449852343,
+0.00864788973563851,
+0.0104909781648272,
+0.0125253720090032,
+0.0147147758791776,
+0.0170201247007765,
+0.0194002811345400,
+0.0218127700368632,
+0.0242145368421757,
+0.0265627163220509,
+0.0288153979898410,
+0.0309323744790802,
+0.0328758595276377,
+0.0346111627422076,
+0.0361073090895091,
+0.0373375920477472,
+0.0382800505368185,
+0.0389178611072629,
+0.0392396383817332 };
+
 	FIR *lpf_882 = (FIR*)malloc(sizeof(FIR));
-	FIR_Init(lpf_882, fir_coeffs, 24);
+	FIR_Init(lpf_882, fir_coeffs, 24);	// fir filter half coeffs
 
 	float *float_out_884[2]{};
-	unsigned int nStep = 4;	// 352->88.4
+	unsigned int nStep = 4;				// 352->88.2
+
 	float_out_884[0] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
+	memset(float_out_884[0], 0, sizeof(float)*nSamplse_per_ch / nStep);
 	float_out_884[1] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
 
-	FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamplse_per_ch, nStep);
-
-	//for (size_t i = 0; i < 100; i++)
-	//{
-	//	printf("%f \n", float_out_884[0][i]);
-	//}
-	//FIR_Destory(lpf_882);
+	float * tmp = (float*)malloc(sizeof(float)*nSamplse_per_ch );
+	//FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamplse_per_ch, nStep);
 
 
 
+	FIR_Process(lpf_882, float_out_352[0], 0, tmp, 0, nSamplse_per_ch, 1 );
+	cout << "Fir\n";
+	size_t count = 0,jj=0;
+	for (size_t i = 0; i < nSamplse_per_ch ; i++)
+	{
+		if (++count == nStep)
+		{
+			float_out_884[0][jj++] = tmp[i];		// 抽取
+			count = 0;
+		}
+		//float_out_884[0][i] = tmp[i * 4];		// 抽取
+	}
+	FIR_Destory(lpf_882);
+	cout << "destory\n";
+	// other version fir filter
 	//unsigned int pos = 0;
 	//float outTmp = 0;
 	//unsigned int count = 0;
@@ -89,16 +102,20 @@ int main()
 	//for (size_t n = 0; n < nSamplse_per_ch; n++)
 	//{
 	//	// 48 taps fir lpf filter,cut-off frequency = 30khz
-	//	outTmp = fir_smpl_circle_f32(48, float_out_352[0][n], coeffs, state, &pos);
+	//	outTmp = fir_smpl_circle_f32(48, float_out_352[1][n], coeffs, state, &pos);
 	//	if (++count == nStep)
 	//	{
-	//		float_out_884[0][n / nStep] = outTmp;		// 抽取
+	//		float_out_884[1][n / nStep] = outTmp;		// 抽取
 	//		count = 0;
 	//	}
+	//	//float_out_884[1][n / nStep] = outTmp;		// 抽取
+
 	//}
 	// output to wav
-	//wavwrite_float("v1 - sweep 882 .wav", float_out_884, nSamplse_per_ch / nStep, 1, 44100*2);
-	wavwrite_float("v6 - music 882 .wav", float_out_884, nSamplse_per_ch / nStep, 1, 44100 * 2);
+	//wavwrite_float("v10 java - music 882 .wav", &tmp, nSamplse_per_ch/nStep , 1, 44100 * 2);
+	wavwrite_float("v11 java - music 882 .wav", &float_out_884[0], nSamplse_per_ch/nStep , 1, 44100 * 2);
+	//wavwrite_float("v1 java - music 882 .wav", &tmp, nSamplse_per_ch , 1, 44100 * 2);
+	//wavwrite_float("v2  mc  - music 882 .wav", &float_out_884[1], nSamplse_per_ch / nStep, 1, 44100 * 2);
 
 	// Free resources
 	free(float_out_884[0]);

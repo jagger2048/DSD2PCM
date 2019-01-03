@@ -4,6 +4,10 @@
 #include "noiseshape.c"
 #include "dsd2pcm.h"
 
+#include <iostream>
+using namespace std;
+
+
 #define CLIP(min,v,max)  ( (v) < (min) )? (min) : ( ( (v) > (max) )? (max) : (v) )
 
 const float my_ns_coeffs[] = {
@@ -242,9 +246,10 @@ struct FIR
 	int buffer_size;
 	int buffer_mask;
 	int bpos;
-	//unsigned int half_order;
+	unsigned int half_order;
 	float *buffer;
 	float *filter_coeffs;
+	float *filter_coeffs_full;
 };
 void FIR_Init(FIR* handles,float *half_coeffs, unsigned int half_order) {
 	//FIR *handles = (FIR*)malloc(sizeof(FIR));
@@ -255,19 +260,22 @@ void FIR_Init(FIR* handles,float *half_coeffs, unsigned int half_order) {
 	}
 	printf("%d \n", k);
 
-	handles->buffer_size = k;
-	handles->buffer_mask = k - 1;
+	//handles->buffer_size = k;
+	//handles->buffer_mask = k - 1;
+	handles->buffer_size = half_order * 2;
+	handles->buffer_mask = half_order * 2 - 1;
 	handles->bpos = 0;
 	handles->buffer = (float *)malloc(sizeof(float) * handles->buffer_size);
 	handles->filter_coeffs = (float *)malloc(sizeof(float) * half_order);
-	//handles->half_order = half_order;
+	handles->filter_coeffs_full = (float *)malloc(sizeof(float) * half_order * 2); // test 
+	handles->half_order = half_order;
 	memset(handles->buffer, 0, sizeof(float) * handles->buffer_size);
 	memcpy(handles->filter_coeffs, half_coeffs, sizeof(float) * half_order);
-	//for (size_t n = 0; n < half_order; n++)
-	//{
-	//	handles->filter_coeffs[n] = half_coeffs[n];
-	//}
-	//return handles;
+	memcpy(handles->filter_coeffs_full, half_coeffs, sizeof(float) * half_order); // test
+	for (size_t i = 0; i < half_order; i++)// test
+	{
+		handles->filter_coeffs_full[ half_order*2 - i -1] = handles->filter_coeffs_full[i];
+	}
 }
 //int FIR_Create(FIR * handles,float *half_coeffs, unsigned int half_order) {
 //	handles = FIR_Init(half_coeffs,half_order);
@@ -285,27 +293,38 @@ int FIR_Process(FIR *handles,float *in,unsigned int input_offest,float *out,unsi
 	}
 	for (size_t n = 0; n < nSample; n+= nStep)
 	{
+		// push data into the FIFO buffer
 		for (size_t step_count = 0; step_count < nStep; step_count++)
 		{
 			handles->buffer[handles->bpos + step_count] = in[input_offest++];
 		}
 
 		handles->bpos = (handles->bpos + nStep) & (handles->buffer_mask);
-		int rr = handles->bpos - handles->buffer_size;
-		int ll = rr - 1;
+
 		float sample = 0;
-		for (int k = 0; k < handles->buffer_size; k++) {
-			sample += handles->filter_coeffs[k] * (handles->buffer[(ll - k) & (handles->buffer_mask)] + handles->buffer[(rr + k) & (handles->buffer_mask)]);
+
+		int index = handles->bpos;
+		//cout <<"-||- "<< index << endl;
+		for (int kk = handles->half_order * 2 -1; kk >=0; kk--)
+		{
+			sample += handles->buffer[ index ] * handles->filter_coeffs_full[kk];
+			index = (index - 1) & (handles->buffer_mask);
 		}
-		out[out_offest++] = sample;
+		//cout << index << endl;
+
+		out[out_offest++] = sample ;
 	}
 	return 0;
 }
+
+
 int FIR_Destory(FIR* handles) {
 	if (handles != NULL)
 	{
 		free(handles->buffer);
 		free(handles->filter_coeffs);
+		free(handles->filter_coeffs_full);
+		free(handles);
 	}
 	return 0;
 }
