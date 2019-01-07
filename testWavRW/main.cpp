@@ -21,13 +21,14 @@
 // http://www.2l.no/hires/index.html
 
 #define RESAMPLE
+#define JAVA_VERSION
 int main()
 {
 	DSD dsdfile;
 	//dsd_read(&dsdfile, "sine-176400hz-100hz-15s-D64-2.8mhz.dsf");		// sine signal
-	//dsd_read(&dsdfile, "2L-125_stereo-2822k-1b_04.dsf");				// music signal
+	dsd_read(&dsdfile, "2L-125_stereo-2822k-1b_04.dsf");				// music signal
 	//dsd_read(&dsdfile, "sweep-176400hz-0-22050hz-20s-D64-2.8mhz.dsf");	// sweep signal
-	dsd_read(&dsdfile, "08 - David Elias - Crossing - Morning Light Western Town (DSD64 2.0).dsf");	// large dsf file for test
+	//dsd_read(&dsdfile, "08 - David Elias - Crossing - Morning Light Western Town (DSD64 2.0).dsf");	// large dsf file for test
 
 	// ========== Decode test ==========//
 	// State 1. ( f64 -> f8 ) 8:1
@@ -41,73 +42,69 @@ int main()
 
 #ifdef RESAMPLE
 	// resample 352.8khz to 88.4khz using a FIR filter
-	float fir_coeffs[24] = { 
-		
-0.00314107879527084,
-0.00330234574654381,
-0.00378306745048105,
-0.00457469702499321,
-0.00566313575729732,
-0.00702898449852343,
-0.00864788973563851,
-0.0104909781648272,
-0.0125253720090032,
-0.0147147758791776,
-0.0170201247007765,
-0.0194002811345400,
-0.0218127700368632,
-0.0242145368421757,
-0.0265627163220509,
-0.0288153979898410,
-0.0309323744790802,
-0.0328758595276377,
-0.0346111627422076,
-0.0361073090895091,
-0.0373375920477472,
-0.0382800505368185,
-0.0389178611072629,
-0.0392396383817332
-
-		/*
--0.000789295417171684,
-- 0.000852570705304739,
-- 0.000850635076797449,
-- 0.000746333304678965,
-- 0.000487305945911603,
-- 2.33112189471681e-05,
-0.000670399783260846,
-0.00156915975205662,
-0.00258101933095544,
-0.00354125216892497,
-0.00422377815262290,
-0.00437103235870096,
-0.00374003157440216,
-0.00215855365617283,
-- 0.000417783956121909,
-- 0.00385848516209242,
-- 0.00783195090329421,
-- 0.0118086294542546,
-- 0.0150980422851308,
-- 0.0169188523568738,
-- 0.0164953774671216,
-- 0.0131687418769496,
-- 0.00650715970988813,
-0.00360159462092648,
-0.0168912457003904,
-0.0327034594323406,
-0.0500255040231985,
-0.0675776609004184,
-0.0839414461870813,
-0.0977132578280429,
-0.107663706449660,
-0.112881372921383
-*/
+	float fir_coeffs_state2[48] = { 
+-1.33768885000000e-06,
+- 3.48297382000000e-06,
+- 5.16205946000000e-06,
+- 1.69056875000000e-06,
+1.54737069800000e-05,
+5.77230132900000e-05,
+0.000135366349050000,
+0.000250800926040000,
+0.000390476659910000,
+0.000519186769230000,
+0.000581243856170000,
+0.000512281970900000,
+0.000262213960590000,
+- 0.000175303742110000,
+- 0.000737031734570000,
+- 0.00128134808988000,
+- 0.00160838203424000,
+- 0.00151339001247000,
+- 0.000864952623610000,
+0.000314465252590000,
+0.00179777272355000,
+0.00316403730329000,
+0.00388856110053000,
+0.00350400707295000,
+0.00179320983820000,
+- 0.00105068213937000,
+- 0.00436803832934000,
+- 0.00713285331154000,
+- 0.00821685345603000,
+- 0.00676581108107000,
+- 0.00258088650527000,
+0.00363150734425000,
+0.0102640847703500,
+0.0151288677706200,
+0.0160582715754000,
+0.0116480229900800,
+0.00192623920806000,
+- 0.0112844420959000,
+- 0.0244872239241600,
+- 0.0331648084859600,
+- 0.0328572061781000,
+- 0.0204074581519200,
+0.00496575740322000,
+0.0410980578417700,
+0.0830274624774600,
+0.123887229327860,
+0.156358732836560,
+0.174329857121580,
 };
+	//for (size_t n = 0; n < 48; n++)
+	//{
+	//	// convert java version coeffs to C version's ranking
+	//	float coeff_tmp = fir_coeffs_state2[n];
+	//	fir_coeffs_state2[n] = fir_coeffs_state2[48 - n - 1];
+	//	fir_coeffs_state2[48 - n -1] = coeff_tmp;
+	//}
+
 	// State 2. (f8 -> f2)
 	FIR *lpf_882 = (FIR*)malloc(sizeof(FIR));
-	FIR_Init(lpf_882, fir_coeffs, 24);				// fir filter half coeffs
+	FIR_Init(lpf_882, fir_coeffs_state2, 48);				// fir filter half coeffs
 	float *float_out_884[2]{};
-	unsigned int nStep = 4;							// 352->88.2 (f8 -> f2) 4:1
+	unsigned int nStep = 4;									// 352->88.2 (f8 -> f2) 4:1
 
 	float_out_884[0] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
 	memset(float_out_884[0], 0, sizeof(float)*nSamplse_per_ch / nStep);
@@ -115,7 +112,7 @@ int main()
 	memset(float_out_884[1], 0, sizeof(float)*nSamplse_per_ch / nStep);
 
 	FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamplse_per_ch, nStep);
-	FIR_Process(lpf_882, float_out_352[1], 0, float_out_884[1], 0, nSamplse_per_ch, nStep);
+	//FIR_Process(lpf_882, float_out_352[1], 0, float_out_884[1], 0, nSamplse_per_ch, nStep);
 
 	// test fir
 	//float * tmp = (float*)malloc(sizeof(float)*nSamplse_per_ch);
@@ -125,7 +122,7 @@ int main()
 	cout << "destory\n";
 
 	// output to wav
-	wavwrite_float("v01 java - music - large 882 - stereo.wav", float_out_884, nSamplse_per_ch/nStep , 2, 44100 * 2);
+	wavwrite_float("v01 java - music - 882 - stereo.wav", float_out_884, nSamplse_per_ch/nStep , 1, 44100 * 2);
 
 	// Free resources
 	free(float_out_884[0]);
