@@ -259,11 +259,14 @@ void FIR_Init(FIR* handles,float *half_coeffs, unsigned int half_order) {
 		k <<= 1;
 	}
 	printf("%d \n", k);
-
-	//handles->buffer_size = k;
-	//handles->buffer_mask = k - 1;
-	handles->buffer_size = half_order * 2;
-	handles->buffer_mask = half_order * 2 - 1;
+	if (k != half_order *2)
+	{
+		printf("%d,%d\n", half_order, k);
+	}
+	handles->buffer_size = k;
+	handles->buffer_mask = k - 1;
+	//handles->buffer_size = half_order * 2;
+	//handles->buffer_mask = half_order * 2 - 1;
 	handles->bpos = 0;
 	handles->buffer = (float *)malloc(sizeof(float) * handles->buffer_size);
 	handles->filter_coeffs = (float *)malloc(sizeof(float) * half_order);
@@ -272,7 +275,7 @@ void FIR_Init(FIR* handles,float *half_coeffs, unsigned int half_order) {
 	memset(handles->buffer, 0, sizeof(float) * handles->buffer_size);
 	memcpy(handles->filter_coeffs, half_coeffs, sizeof(float) * half_order);
 	memcpy(handles->filter_coeffs_full, half_coeffs, sizeof(float) * half_order); // test
-	for (size_t i = 0; i < half_order; i++)// test
+	for (size_t i = 0; i < half_order; i++)		// test
 	{
 		handles->filter_coeffs_full[ half_order*2 - i -1] = handles->filter_coeffs_full[i];
 	}
@@ -293,30 +296,81 @@ int FIR_Process(FIR *handles,float *in,unsigned int input_offest,float *out,unsi
 	}
 	for (size_t n = 0; n < nSample; n+= nStep)
 	{
+		// push data into the FIFO buffer，NOTE that in some cases,buffer_length is not equal to filter order
+		// buffer_length must be a power of 2 >= filter order in order to use |&| operator.
+		for (size_t step_count = 0; step_count < nStep; step_count++)
+		{
+			handles->buffer[handles->bpos + step_count] = in[input_offest++];
+		}
+		handles->bpos = (handles->bpos + nStep) & (handles->buffer_mask);
+		//handles->bpos = (handles->bpos + nStep > handles->buffer_mask ) ? 0:(handles->bpos + nStep);
+
+		float sample = 0;
+		int rr = handles->bpos;															// right seek index
+		int ll = (handles->bpos + handles->half_order * 2 -1) & handles->buffer_mask;	// left seek index	% handles->buffer_mask;
+
+		for (size_t kk = 0; kk < handles->half_order; kk++)
+		{
+			//sample += handles->filter_coeffs[kk] * (handles->buffer[(rr++)&handles->buffer_mask] + handles->buffer[(ll--)&handles->buffer_mask]);
+			// 使用 +- kk 代替 ++ -- 避免 ll rr 数据溢出
+			sample += handles->filter_coeffs[kk] * (handles->buffer[(rr + kk)&handles->buffer_mask] + handles->buffer[(ll - kk)&handles->buffer_mask]);
+		}
+		out[out_offest++] = sample ;
+	}
+	return 0;
+}
+
+// backup 
+int FIR_Process_without_folding(FIR *handles, float *in, unsigned int input_offest, float *out, unsigned int out_offest, unsigned int nSample, unsigned nStep) {
+	// defalut input_offest out_offest is |0|,nStep is |1|
+	if (nSample < nStep)
+	{
+		return -1;
+	}
+	for (size_t n = 0; n < nSample; n += nStep)
+	{
 		// push data into the FIFO buffer
 		for (size_t step_count = 0; step_count < nStep; step_count++)
 		{
 			handles->buffer[handles->bpos + step_count] = in[input_offest++];
 		}
 
-		handles->bpos = (handles->bpos + nStep) & (handles->buffer_mask);
+		//handles->bpos = (handles->bpos + nStep) & (handles->buffer_mask);// order must be a power of 2 if you want to use this method.
+		handles->bpos = (handles->bpos + nStep > handles->buffer_mask) ? 0 : (handles->bpos + nStep);
 
 		float sample = 0;
-
 		int index = handles->bpos;
-		//cout <<"-||- "<< index << endl;
-		for (int kk = handles->half_order * 2 -1; kk >=0; kk--)
-		{
-			sample += handles->buffer[ index ] * handles->filter_coeffs_full[kk];
-			index = (index - 1) & (handles->buffer_mask);
-		}
-		//cout << index << endl;
 
-		out[out_offest++] = sample ;
+		// without folding structure
+		////for (int kk = handles->half_order * 2 -1; kk >=0; kk--)
+		//for (size_t kk = 0; kk < handles->half_order * 2 ; kk++)
+		//{
+		//	sample += handles->buffer[ index ] * handles->filter_coeffs_full[kk];
+		//	index = (index + 1) > (handles->buffer_mask)? 0 : index + 1;
+		//	//sample += handles->buffer[ index & handles->buffer_mask ] * handles->filter_coeffs_full[kk];
+		//}
+
+		int rr = handles->bpos;			// right seek index
+		//int ll0 = handles->bpos - 1;		// left seek index(if buffer len equals FIR order)
+		//if (ll0 < 0)
+		//{
+		//	ll0 = handles->buffer_mask;
+		//}
+		int ll = (handles->bpos + handles->half_order * 2 - 1);// % handles->buffer_mask;
+		if (ll > handles->buffer_size)
+		{
+			ll = ll - handles->buffer_size;
+		}
+		for (size_t kk = 0; kk < handles->half_order; kk++)
+		{
+			sample += handles->filter_coeffs[kk] * (handles->buffer[rr] + handles->buffer[ll]);
+			rr = (rr + 1) > (handles->buffer_mask) ? 0 : rr + 1;
+			ll = (ll - 1) >= (0) ? ll - 1 : handles->buffer_mask;
+		}
+		out[out_offest++] = sample;
 	}
 	return 0;
 }
-
 
 int FIR_Destory(FIR* handles) {
 	if (handles != NULL)
@@ -328,6 +382,38 @@ int FIR_Destory(FIR* handles) {
 	}
 	return 0;
 }
+
+void FIR_test(unsigned int order,float *input,float *output,unsigned int nSample,float *fir_coeffs,float *buffer,int pos){
+	// test passed
+	for (size_t i = 0; i < order ; i++)
+	{
+		buffer[i] = 0;
+	}
+	unsigned int buffer_size = order - 1;
+	for (size_t n = 0; n < nSample; n++)
+	{
+		buffer[pos] = input[n];	// push data in
+		//pos = (pos + 1) & buffer_size;	// order must be a power of 2 if you want to use this method.
+		if (++ pos >= order)
+		{
+			pos = 0;
+		}
+		float sum = 0.0f;
+		int p = pos;
+		for (int i = order -1 ; i >=0; --i)
+		{
+			//cout << i << endl;
+			sum += fir_coeffs[i] * (buffer[ p ]);
+			//p = (p + 1)&buffer_size;
+			if (++ p >= order)
+			{
+				p = 0;
+			}
+		}
+		output[n] = sum;
+	}
+}
+
 // to be deleted 
 /*
 struct  Biquad

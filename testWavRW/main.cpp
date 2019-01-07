@@ -25,11 +25,13 @@ int main()
 {
 	DSD dsdfile;
 	//dsd_read(&dsdfile, "sine-176400hz-100hz-15s-D64-2.8mhz.dsf");		// sine signal
-	dsd_read(&dsdfile, "2L-125_stereo-2822k-1b_04.dsf");				// music signal
+	//dsd_read(&dsdfile, "2L-125_stereo-2822k-1b_04.dsf");				// music signal
 	//dsd_read(&dsdfile, "sweep-176400hz-0-22050hz-20s-D64-2.8mhz.dsf");	// sweep signal
+	dsd_read(&dsdfile, "08 - David Elias - Crossing - Morning Light Western Town (DSD64 2.0).dsf");	// large dsf file for test
 
 	// ========== Decode test ==========//
-	// general a 352.8khz wav file.( f64 -> f8 )
+	// State 1. ( f64 -> f8 ) 8:1
+	// general a 352.8khz wav file.
 	float *float_out_352[2] = {};											// stereo output
 	size_t nSamplse_per_ch = 0;
 
@@ -40,6 +42,7 @@ int main()
 #ifdef RESAMPLE
 	// resample 352.8khz to 88.4khz using a FIR filter
 	float fir_coeffs[24] = { 
+		
 0.00314107879527084,
 0.00330234574654381,
 0.00378306745048105,
@@ -63,66 +66,72 @@ int main()
 0.0373375920477472,
 0.0382800505368185,
 0.0389178611072629,
-0.0392396383817332 };
+0.0392396383817332
 
+		/*
+-0.000789295417171684,
+- 0.000852570705304739,
+- 0.000850635076797449,
+- 0.000746333304678965,
+- 0.000487305945911603,
+- 2.33112189471681e-05,
+0.000670399783260846,
+0.00156915975205662,
+0.00258101933095544,
+0.00354125216892497,
+0.00422377815262290,
+0.00437103235870096,
+0.00374003157440216,
+0.00215855365617283,
+- 0.000417783956121909,
+- 0.00385848516209242,
+- 0.00783195090329421,
+- 0.0118086294542546,
+- 0.0150980422851308,
+- 0.0169188523568738,
+- 0.0164953774671216,
+- 0.0131687418769496,
+- 0.00650715970988813,
+0.00360159462092648,
+0.0168912457003904,
+0.0327034594323406,
+0.0500255040231985,
+0.0675776609004184,
+0.0839414461870813,
+0.0977132578280429,
+0.107663706449660,
+0.112881372921383
+*/
+};
+	// State 2. (f8 -> f2)
 	FIR *lpf_882 = (FIR*)malloc(sizeof(FIR));
-	FIR_Init(lpf_882, fir_coeffs, 24);	// fir filter half coeffs
-
+	FIR_Init(lpf_882, fir_coeffs, 24);				// fir filter half coeffs
 	float *float_out_884[2]{};
-	unsigned int nStep = 4;				// 352->88.2
+	unsigned int nStep = 4;							// 352->88.2 (f8 -> f2) 4:1
 
 	float_out_884[0] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
 	memset(float_out_884[0], 0, sizeof(float)*nSamplse_per_ch / nStep);
 	float_out_884[1] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
+	memset(float_out_884[1], 0, sizeof(float)*nSamplse_per_ch / nStep);
 
-	float * tmp = (float*)malloc(sizeof(float)*nSamplse_per_ch );
-	//FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamplse_per_ch, nStep);
+	FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamplse_per_ch, nStep);
+	FIR_Process(lpf_882, float_out_352[1], 0, float_out_884[1], 0, nSamplse_per_ch, nStep);
 
+	// test fir
+	//float * tmp = (float*)malloc(sizeof(float)*nSamplse_per_ch);
+	//FIR_test(48, float_out_352[0], tmp, nSamplse_per_ch, coeffs, state, 0);// test passed
 
-
-	FIR_Process(lpf_882, float_out_352[0], 0, tmp, 0, nSamplse_per_ch, 1 );
-	cout << "Fir\n";
-	size_t count = 0,jj=0;
-	for (size_t i = 0; i < nSamplse_per_ch ; i++)
-	{
-		if (++count == nStep)
-		{
-			float_out_884[0][jj++] = tmp[i];		// 抽取
-			count = 0;
-		}
-		//float_out_884[0][i] = tmp[i * 4];		// 抽取
-	}
 	FIR_Destory(lpf_882);
 	cout << "destory\n";
-	// other version fir filter
-	//unsigned int pos = 0;
-	//float outTmp = 0;
-	//unsigned int count = 0;
-	//unsigned int s = 0;
-	//for (size_t n = 0; n < nSamplse_per_ch; n++)
-	//{
-	//	// 48 taps fir lpf filter,cut-off frequency = 30khz
-	//	outTmp = fir_smpl_circle_f32(48, float_out_352[1][n], coeffs, state, &pos);
-	//	if (++count == nStep)
-	//	{
-	//		float_out_884[1][n / nStep] = outTmp;		// 抽取
-	//		count = 0;
-	//	}
-	//	//float_out_884[1][n / nStep] = outTmp;		// 抽取
 
-	//}
 	// output to wav
-	//wavwrite_float("v10 java - music 882 .wav", &tmp, nSamplse_per_ch/nStep , 1, 44100 * 2);
-	wavwrite_float("v11 java - music 882 .wav", &float_out_884[0], nSamplse_per_ch/nStep , 1, 44100 * 2);
-	//wavwrite_float("v1 java - music 882 .wav", &tmp, nSamplse_per_ch , 1, 44100 * 2);
-	//wavwrite_float("v2  mc  - music 882 .wav", &float_out_884[1], nSamplse_per_ch / nStep, 1, 44100 * 2);
+	wavwrite_float("v01 java - music - large 882 - stereo.wav", float_out_884, nSamplse_per_ch/nStep , 2, 44100 * 2);
 
 	// Free resources
 	free(float_out_884[0]);
 	free(float_out_884[1]);
 
 #endif // RESAMPLE
-
 
 	
 	free(float_out_352[0]);
