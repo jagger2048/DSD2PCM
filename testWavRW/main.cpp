@@ -85,7 +85,7 @@ int main()
 	cout << "destory\n";
 
 	// output to wav
-	wavwrite_float("v001 - halfband - music - full.wav", &float_out_884[0], nSamplse_per_ch /2 , 1, 44100 * 4 );
+	wavwrite_float("v004 - halfband - music - full.wav", &float_out_884[0], nSamplse_per_ch /2 , 1, 44100 * 4 );
 
 	// Free resources
 	free(float_out_884[0]);
