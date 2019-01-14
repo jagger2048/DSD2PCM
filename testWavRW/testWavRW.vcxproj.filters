@@ -26,9 +26,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="dr_wav.h">
-      <Filter>源文件</Filter>
-    </ClInclude>
     <ClInclude Include="wavfile.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -41,7 +38,13 @@
     <ClInclude Include="dsd2pcm\noiseshape.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="mDSD2PCM.h">
+    <ClInclude Include="fir_halfband.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dr_wav.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="state2.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
