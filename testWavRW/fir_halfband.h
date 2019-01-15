@@ -77,6 +77,7 @@ void fir_halfband_process(FIR_Halfband *handles,float *input,float*output,int nS
 
 	size_t out_index = 0;
 	size_t in_index = 0;
+
 	for (size_t n = 0; n < nSamples ; n+=nStep)
 	{
 		// push data into the FIFO buffer
@@ -95,7 +96,7 @@ void fir_halfband_process(FIR_Halfband *handles,float *input,float*output,int nS
 		int ll = (handles->bpos + handles->half_order * 2 ) & handles->buffer_mask;	// left seek index	
 		int mm = (handles->bpos + handles->half_order ) & handles->buffer_mask;
 		float sum = 0;
-		for (size_t k = 0; k < handles->half_order ; k++)
+		for (size_t k = 0; k < handles->half_order /2; k++)
 		{
 			// 原始未优化方案：
 			// k < handles->half_order*2-1
@@ -107,12 +108,14 @@ void fir_halfband_process(FIR_Halfband *handles,float *input,float*output,int nS
 			//	handles->buffer[(rr + k)&handles->buffer_mask] +
 			//	handles->buffer[(ll - k)&handles->buffer_mask]
 			//	);	
-			// 对称优化方案2 ： 系数为 0 的不计算 - 未通过
-
-			sum += handles->full_coeffs[k*2 + 1] * (
+			// 对称优化方案2 ： 系数为 0 的不计算 - 验证通过
+			//for (size_t k = 0; k < handles->half_order / 2; k++)
+			//sum += handles->full_coeffs[k*2 + 1] * (
+			sum += handles->half_coeffs[k] * (
 				handles->buffer[(rr + k*2+1)&handles->buffer_mask] +
 				handles->buffer[(ll - k*2-1)&handles->buffer_mask]
 				);
+
 			// half band 优化方案 ： 需要使用其他结构
 			//sum += handles->full_coeffs[k * 2 + 1] * (
 			//	handles->buffer[(rr + k*2)&handles->buffer_mask] +
