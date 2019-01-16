@@ -2,7 +2,6 @@
 //
 #define DR_WAV_IMPLEMENTATION
 
-#define RESAMPLE
 #define JAVA_VERSION
 
 #include <stdio.h>
@@ -32,29 +31,26 @@
 int main()
 {
 	DSD dsdfile;
-	//dsd_read(&dsdfile, "sine-176400hz-100hz-15s-D64-2.8mhz.dsf");		// sine signal
 	dsd_read(&dsdfile, "2L-125_stereo-2822k-1b_04.dsf");				// music signal
 	//dsd_read(&dsdfile, "sweep-176400hz-0-22050hz-20s-D64-2.8mhz.dsf");	// sweep signal
-	//dsd_read(&dsdfile, "08 - David Elias - Crossing - Morning Light Western Town (DSD64 2.0).dsf");	// large dsf file for test
 
 	// ========== Decode test ==========//
 	// State 1. ( f64 -> f8 ) 8:1
-	// general a 352.8khz wav file.
+	// general 352.8khz signal
 	float *float_out_352[2] = {};											// stereo output
 	size_t nSamplse_per_ch = 0;
 
+	clock_t t1 = clock();
 	dsd_decode(&dsdfile, float_out_352, nSamplse_per_ch);
-
-	wavwrite_float("v001 - sweep - to processed.wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8 ); // no output
-
-#ifdef RESAMPLE
-	// resample 352.8khz to 88.4khz using a FIR filter
+	clock_t t2 = clock();
+	printf(" State 1 cost %d ms (%d opints output)\n", t2 - t1, nSamplse_per_ch);
+	//wavwrite_float("v001 - sweep - to processed.wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8 ); // not output
 	
-	// State 2. (f8 -> f2)
-	FIR *lpf_882 = (FIR*)malloc(sizeof(FIR));
-	FIR_Init(lpf_882, fir_coeffs_state2, 48);				// fir filter half coeffs
+	// State 2. (f8 -> f2) 4:1
+	// resample 352.8khz to 88.4khz using a FIR filter
 
-	//FIR *lpf_882 = FIR_Create(48,fir_coeffs_state2);
+	FIR *lpf_882 = FIR_Create( 48, fir_coeffs_state2);
+
 	FIR_Halfband *halfband_352 = fir_halfband_create(48, fir_halfband_coeffs_352);
 	FIR_Halfband *halfband_176 = fir_halfband_create(24, fir_halfband_coeffs_176);
 
@@ -63,45 +59,28 @@ int main()
 
 	float_out_884[0] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
 	memset(float_out_884[0], 0, sizeof(float)*nSamplse_per_ch / nStep);
-
 	float_out_884[1] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
 	memset(float_out_884[1], 0, sizeof(float)*nSamplse_per_ch / nStep);
 
 	// 对比测试
-	cout << "start to process:\n";
+	printf( "start to process:\n");
 	clock_t ts = clock();
-	for (size_t n = 0; n < 5; n++)
-	{
-		FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamplse_per_ch, 4);
-	}
+	FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamplse_per_ch, 4);
 	clock_t te = clock();
 
-	cout <<  nSamplse_per_ch <<" points in,"<< nSamplse_per_ch  /4 <<" points out; "<< " costs " <<( te - ts)/5.0 << " ms\n";
+	//cout <<  nSamplse_per_ch <<" points in,"<< nSamplse_per_ch  /4 <<" points out; "<< " costs " <<( te - ts) << " ms  - state2 \n";
+	printf(" %d pints in, %d points out; costs %d ms ( state2 FIR )\n", nSamplse_per_ch, nSamplse_per_ch / 4, te - ts);
+	// output to wav
+	wavwrite_float("v001 - music v1.wav", &float_out_884[0], nSamplse_per_ch / 4, 1, 44100 * 2);
 
-	wavwrite_float("v001 - sweep - state2.wav", &float_out_884[0], nSamplse_per_ch / 4, 1, 44100 * 2);
-
-
+	//============//
 	ts = clock();
-	for (size_t n = 0; n < 5; n++)
-	{
-		fir_halfband_process(halfband_352, float_out_352[0], float_out_884[0], nSamplse_per_ch, nStep);
-		fir_halfband_process(halfband_176, float_out_884[0], float_out_884[1], nSamplse_per_ch / 2, nStep);
-	}
+	fir_halfband_process(halfband_352, float_out_352[0], float_out_884[0], nSamplse_per_ch, nStep);		// section one
+	fir_halfband_process(halfband_176, float_out_884[0], float_out_884[1], nSamplse_per_ch / 2, nStep);	// section two
 	te = clock();
 
-	fir_halfband_process(halfband_176, float_out_884[0], float_out_884[1], nSamplse_per_ch / 2, nStep);
-
-	cout << nSamplse_per_ch << " points in," << nSamplse_per_ch / 4 << " points out; " << " costs " << (te - ts) / 5.0 << " ms\n";
-
-	ts = clock();
-	fir_halfband_process(halfband_352, float_out_352[0], float_out_884[0], nSamplse_per_ch, nStep);
-	te = clock();
-	cout << " step one" << nSamplse_per_ch / 2 << " points cost " << (te-ts) << " ms\n";
-
-	ts = clock();
-	fir_halfband_process(halfband_176, float_out_884[0], float_out_884[1], nSamplse_per_ch / 2, nStep);
-	te = clock();
-	cout << " step one" << nSamplse_per_ch / 4 << " points cost " << (te - ts) << " ms\n";
+	printf(" %d pints in, %d points out; costs %d ms ( state2 halfband FIR )\n", nSamplse_per_ch, nSamplse_per_ch / 4, te - ts);
+	//cout << nSamplse_per_ch << " points in," << nSamplse_per_ch / 4 << " points out; " << " costs " << (te - ts) << " ms\n";
 
 
 	// Destory
@@ -109,18 +88,12 @@ int main()
 	fir_halfband_destory(halfband_176);
 	FIR_Destory(lpf_882);
 
-	cout << "destory\n";
-
 	// output to wav
-	wavwrite_float("v001 - sweep - mdified.wav", &float_out_884[1], nSamplse_per_ch /4 , 1, 44100 * 2 );
-	wavwrite_float("v001 - sweep - one.wav", &float_out_884[0], nSamplse_per_ch /2 , 1, 44100 * 4 );
+	wavwrite_float("v001 - music v2.wav", &float_out_884[1], nSamplse_per_ch /4 , 1, 44100 * 2 );
 
 	// Free resources
 	free(float_out_884[0]);
 	free(float_out_884[1]);
-
-#endif // RESAMPLE
-
 	free(float_out_352[0]);
 
 	return 0;

@@ -22,24 +22,15 @@ void fir_halfband_init(FIR_Halfband *handles ,unsigned int half_order, float *ha
 	// https://fr.mathworks.com/help/dsp/ref/dsp.firhalfbanddecimator-system-object.html
 	// [1] Harris, F.J. Multirate Signal Processing for Communication Systems, Prentice Hall, 2004, chapter 8. pp. 208–209.
 
-	// 
 	int k = 1;
-	//int full_order = 0;
-	//if (half_order %2 == 0)
-	//{
-	//	full_order = half_order * 2;
-	//}
-	//else
-	//{
-	//	full_order = half_order * 2 + 1;
-	//}
 	while (k < half_order * 2 + 1)
 	{
 		k <<= 1;
 	}
+
 	handles->nTaps = 2 * half_order + 1;
 	handles->half_order = half_order ;
-	handles->buffer_size = k;		// 未 polyphase 优化版本，后续换上长度为 2 的倍数的buffer
+	handles->buffer_size = k;										// k must the power of 2
 	handles->buffer_mask = k-1 ;
 	handles->bpos = 0;
 
@@ -50,10 +41,10 @@ void fir_halfband_init(FIR_Halfband *handles ,unsigned int half_order, float *ha
 
 	for (size_t n = 0; n < half_order / 2 ; n++)
 	{
-		handles->half_coeffs[n] = half_coeffs[ n*2 + 1];	// 去掉 0 
+		handles->half_coeffs[n] = half_coeffs[ n*2 + 1];
 	}
 
-	// 记录完整系数 , 转化后注意检查是否正确！
+	// record the full coefficients
 
 	memcpy(handles->full_coeffs, half_coeffs, sizeof(float) * half_order);
 
@@ -73,7 +64,6 @@ FIR_Halfband * fir_halfband_create(unsigned int half_order, float *half_coeffs) 
 	return handles;
 }
 void fir_halfband_process(FIR_Halfband *handles,float *input,float*output,int nSamples,int nStep) {
-	// 先使用传统对称的形式实现一遍，然后再使用 polyphase 结构来改造
 
 	size_t out_index = 0;
 	size_t in_index = 0;
@@ -92,35 +82,31 @@ void fir_halfband_process(FIR_Halfband *handles,float *input,float*output,int nS
 
 		int index = handles->bpos;
 
-		int rr = handles->bpos;															// right seek index
-		int ll = (handles->bpos + handles->half_order * 2 ) & handles->buffer_mask;	// left seek index	
+		int rr = handles->bpos;																// right seek index
+		int ll = (handles->bpos + handles->half_order * 2 ) & handles->buffer_mask;			// left seek index	
 		int mm = (handles->bpos + handles->half_order ) & handles->buffer_mask;
 		float sum = 0;
+
 		for (size_t k = 0; k < handles->half_order /2; k++)
 		{
-			// 原始未优化方案：
+			// original FIR
 			// k < handles->half_order*2-1
 			//sum += handles->full_coeffs[k] * handles->buffer[ ( index + k ) & handles->buffer_mask];	
 
-			// 对称优化方案：
+			// FIR with symmetry optimized
 			////for (size_t k = 0; k < handles->half_order; k++)
 			//sum += handles->full_coeffs[k] * (
 			//	handles->buffer[(rr + k)&handles->buffer_mask] +
 			//	handles->buffer[(ll - k)&handles->buffer_mask]
 			//	);	
-			// 对称优化方案2 ： 系数为 0 的不计算 - 验证通过
+
+			// FIR with symmetry optimized, ignoring the coefficients equal 0
 			//for (size_t k = 0; k < handles->half_order / 2; k++)
 			//sum += handles->full_coeffs[k*2 + 1] * (
 			sum += handles->half_coeffs[k] * (
 				handles->buffer[(rr + k*2+1)&handles->buffer_mask] +
 				handles->buffer[(ll - k*2-1)&handles->buffer_mask]
 				);
-
-			// half band 优化方案 ： 需要使用其他结构
-			//sum += handles->full_coeffs[k * 2 + 1] * (
-			//	handles->buffer[(rr + k*2)&handles->buffer_mask] +
-			//	handles->buffer[(ll - k*2)&handles->buffer_mask]
-			//	);
 
 		}
 		// output
@@ -199,7 +185,7 @@ float fir_halfband_coeffs_352[48] = {
 };
 
 float fir_halfband_coeffs_176[24] = {
-	// half coefficients of 96-tap halfband filter
+	// half coefficients of 48-tap halfband filter
 	// b1 = firhalfband(48,10^(-130/20),'dev');
 0,
 -7.85343785936415e-06,
