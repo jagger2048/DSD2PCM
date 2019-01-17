@@ -1,13 +1,11 @@
 #pragma once
 #include <stdio.h>
 #include <stdint.h>
-#include "noiseshape.c"
 #include "dsd2pcm.h"
 
-#include <iostream>
-using namespace std;
-
-
+#ifdef DSD_NOISE_SHAPE
+// noiseshape processing test NOT pass.
+#include "noiseshape.c"
 #define CLIP(min,v,max)  ( (v) < (min) )? (min) : ( ( (v) > (max) )? (max) : (v) )
 
 const float my_ns_coeffs[] = {
@@ -22,6 +20,7 @@ inline long myround(float x)
 {
 	return (long)(x + (x >= 0 ? 0.5f : -0.5f));
 }
+#endif // NOISE_SHAPE
 
 float fir_smpl_circle_f32(int order, float sample, const float* coeffs, float* buffer, unsigned int* state) {
 	float accu = 0.0f;
@@ -70,8 +69,6 @@ struct DSD
 };
 
 
-
-
 int dsd_read(DSD *dsdfile, const char* file_name) {
 
 	FILE *fp = NULL;
@@ -81,19 +78,16 @@ int dsd_read(DSD *dsdfile, const char* file_name) {
 	}
 #else
 	fp = fopen(file_name, "rb");
-	if (pFile == NULL) {
+	if (fp == NULL) {
 		return -1;
 	}
 #endif
 
-	//fopen_s(&fp, file_name, "rb");
-	//fp = fopen(file_name, "rb");
 	fread(dsdfile->dsd_chunk_header, 84, 1, fp);
 	fread(&dsdfile->data_size, sizeof(dsdfile->data_size), 1, fp);
 	unsigned int nSamples = dsdfile->data_size - 12;				// the total size of data, nSamples / nCh
 	if (nSamples != dsdfile->sample_count / 8 * dsdfile->channel_num)
 	{
-		//printf("Samples not match\n");
 		nSamples = (dsdfile->sample_count / 8 * dsdfile->channel_num / 4096) * 4096;
 	}
 	// read the raw DSD data
@@ -120,12 +114,14 @@ int dsd_read(DSD *dsdfile, const char* file_name) {
 
 int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 
+#ifdef DSD_NOISE_SHAPE
 	// initialize the noise shape
 	noise_shape_ctx_s* pNs[2];
 	pNs[0] = (noise_shape_ctx_s *)malloc(sizeof(noise_shape_ctx_s));
 	pNs[1] = (noise_shape_ctx_s *)malloc(sizeof(noise_shape_ctx_s));
 	noise_shape_init(pNs[0], my_ns_soscount, my_ns_coeffs);
 	noise_shape_init(pNs[1], my_ns_soscount, my_ns_coeffs);
+#endif // DSD_NOISE_SHAPE
 
 	// initialize the decode module
 	dsd2pcm_ctx *d2p[2]{};
@@ -149,8 +145,6 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 	size_t nFrames = dsdfile->nBytes / (block * channels);
 	size_t upIndex[2] = { 0,0 };
 	
-	// test case : output a 
-
 
 	// decode to 352khz 
 	for (size_t n = 0; n < nFrames; n++)
@@ -167,12 +161,14 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 				1
 			);
 
+#ifdef DSD_NOISE_SHAPE
 			// Noise shaping
 			//*(pFloat_out[c] + upIndex[c]) += noise_shape_get(pNs[c]);
 
 			//long smp =CLIP(-32768, myround(*(pFloat_out[c] + upIndex[c]) ) , 32767);
 
 			//noise_shape_update(pNs[c], CLIP(-1, smp - *(pFloat_out[c] + upIndex[c]) , 1) );
+#endif // DSD_NOISE_SHAPE
 
 			upIndex[c] += block;
 		}
@@ -180,8 +176,12 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 	dsd2pcm_destroy(d2p[0]);
 	dsd2pcm_destroy(d2p[1]);
 
+#ifdef DSD_NOISE_SHAPE
 	noise_shape_destroy(pNs[0]);
 	noise_shape_destroy(pNs[1]);
+#endif // DSD_NOISE_SHAPE
+
+
 
 	samples_per_ch = upIndex[0];
 	return 0;
