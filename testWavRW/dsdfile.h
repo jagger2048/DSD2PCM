@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "dsd2pcm.h"
+#include "state2.h"
 #ifdef __cplusplus
 extern "C" {
 #endif // _cplusplus
@@ -58,35 +59,42 @@ int dsd_destory(DSD* handles) {
 }
 
 
-int dsd_read(DSD *dsdfile, const char* file_name) {
+//int dsd_read(DSD *dsdfile, const char* file_name) {
+DSD* dsd_read(const char* file_name) {
 
 	FILE *fp = NULL;
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 	if (fopen_s(&fp, file_name, "rb") != 0) {
-		return -1;
+		return NULL;
 	}
 #else
 	fp = fopen(file_name, "rb");
 	if (pFile == NULL) {
-		return -1;
+		return NULL;
 	}
 #endif
 
-	//fopen_s(&fp, file_name, "rb");
-	//fp = fopen(file_name, "rb");
+	DSD *dsdfile = NULL;
+	dsdfile = dsd_create();
+	if (dsdfile == NULL)
+	{
+		printf("dsd initialized failed\n");
+		return NULL;
+	}
 	fread(dsdfile->dsd_chunk_header, 84, 1, fp);
 	fread(&dsdfile->data_size, sizeof(dsdfile->data_size), 1, fp);
-	unsigned int nSamples = dsdfile->data_size - 12;				// the total size of data, nSamples / nCh
+	unsigned int nSamples = dsdfile->data_size - 12;					// the total size of data, nSamples / nCh
 	if (nSamples != dsdfile->sample_count / 8 * dsdfile->channel_num)
 	{
 		//printf("Samples not match\n");
 		nSamples = (dsdfile->sample_count / 8 * dsdfile->channel_num / 4096) * 4096;
 	}
 	// read the raw DSD data
-	dsdfile->pSampleData = new uint8_t[nSamples]{};				// Initialize
+	//dsdfile->pSampleData = new uint8_t[nSamples]{};						// Initialize
+	dsdfile->pSampleData = (uint8_t*)malloc(sizeof(uint8_t) * nSamples);
 	dsdfile->nBytes = nSamples;
 
-	fread(dsdfile->pSampleData, nSamples, 1, fp);				// read
+	fread(dsdfile->pSampleData, nSamples, 1, fp);						// read
 
 	printf("     DSD file messages:\n");
 	printf("================================\n");
@@ -101,10 +109,10 @@ int dsd_read(DSD *dsdfile, const char* file_name) {
 	printf("================================\n");
 
 	fclose(fp);
-	return 0;
+	return dsdfile;
 }
 
-int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
+int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_decoded) {
 
 	// initialize the noise shape
 #ifdef HAVE_NOISE_SHAPE
@@ -133,7 +141,7 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 	pFloat_out[0] = fTmp;
 	pFloat_out[1] = fTmp + dsdfile->nBytes / 2;				// right channel
 
-	samples_per_ch = dsdfile->nBytes / 2;
+	samples_decoded = dsdfile->nBytes / 2;
 	size_t nFrames = dsdfile->nBytes / (block * channels);
 	size_t upIndex[2] = { 0,0 };
 
@@ -174,11 +182,35 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 	noise_shape_destroy(pNs[1]);
 #endif // HAVE_NOISE_SHAPE
 
-	samples_per_ch = upIndex[0];		// return the number of samples have been read.
+	samples_decoded = upIndex[0];		// return the number of samples have been read.
 	return 0;
 }
 
-//dsd_decode_176()
+int dsd_decode_882(DSD *dsdfile, float *pFloat_out[2], size_t &samples_decoded) {
+	// decode dsd file from dsd data into 88.2kHz float data
+	// dsd data-> decode to 352kHz->decode to 88.2kHz(state 2)->output float data
+	float *pFloat_352[2]{ 0 };
+	int error = dsd_decode(dsdfile, pFloat_352, samples_decoded);
+	if (error !=0)
+	{
+		printf("dsd decode state 1 failed\n");
+		return -1;
+	}
+	int channels = dsdfile->channel_num;
+	FIR *lpf_882[2]{0};
+	size_t nStep = 4;
+	for (size_t n = 0; n < channels; n++)
+	{
+		lpf_882[n] = state2_create(48, state2_fir_coeffs);
+		pFloat_out[n] = (float*)malloc(sizeof(float) * samples_decoded / nStep );
+		state2_process(lpf_882[n], pFloat_352[n], 0, pFloat_out[n], 0, samples_decoded, nStep);
+	}
+	samples_decoded = samples_decoded / nStep;
+
+	free(pFloat_352[0]);	// free memory in state1
+	return 0;
+}
+
 
 // a fir structure for reference
 float fir_smpl_circle_f32(int order, float sample, const float* coeffs, float* buffer, unsigned int* state) {

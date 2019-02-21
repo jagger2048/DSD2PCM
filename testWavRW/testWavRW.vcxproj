@@ -159,7 +159,6 @@
     <ClInclude Include="dr_wav.h" />
     <ClInclude Include="dsd2pcm\dsd2pcm.h" />
     <ClInclude Include="dsd2pcm\noiseshape.h" />
-    <ClInclude Include="dsd2pcm_impl.h" />
     <ClInclude Include="dsdfile.h" />
     <ClInclude Include="fir_halfband.h" />
     <ClInclude Include="noise_shape_test.h" />

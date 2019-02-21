@@ -9,9 +9,7 @@
 #include "wavfile.h"
 
 #include "dsdfile.h"
-#include "state2.h"
-#include "fir_halfband.h"
-#include <time.h>
+
 // ref
 //	https://code.google.com/archive/p/dsd2pcm    dsd2pcm C version
 // dsd2pcm java version
@@ -27,32 +25,28 @@
 // http://www.2l.no/hires/index.html
 int main()
 {
-	DSD dsdfile;
+	DSD *dsdfile = NULL;
 	float *float_out_352[2] = {};											// stereo output
-	float *float_out_884[2]{};
+	float *float_out_882[2]{};
 	size_t nSamples_per_channel = 0;										
 	// -1 Read dsd file
-	dsd_read(&dsdfile, "2L-125_stereo-2822k-1b_04.dsf");					// music signal
+	dsdfile = dsd_read("2L-125_stereo-2822k-1b_04.dsf");					// music signal
 
-	// -2.1 State 1. ( f64 -> f8 ) 8:1	,general 352.8khz signal
-	dsd_decode(&dsdfile, float_out_352, nSamples_per_channel);
-	//wavwrite_float("v001 - sweep - to processed.wav", float_out_352, nSamples_per_channel , 1, 44100 * 8 ); // not output
-	
-	// -2.2 State 2. (f8 -> f2) 4:1		,resample 352.8khz to 88.4khz using a FIR filter
-	FIR *lpf_882 = FIR_Create( 48, fir_coeffs_state2);
-	size_t nStep = 4;
-	float_out_884[0] = (float*)malloc(sizeof(float) * nSamples_per_channel / nStep);
-	float_out_884[1] = (float*)malloc(sizeof(float) * nSamples_per_channel / nStep);
-	FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamples_per_channel, nStep);
+	// -2.1 State 1. ( f64 -> f8 ) 8:1	,produce 352.8khz signal
+	dsd_decode(dsdfile, float_out_352, nSamples_per_channel);
+	wavwrite_float("music 352 .wav", &float_out_352[0], nSamples_per_channel, 2, 44100 * 8);
+
+	// -2.2 State 1 + State2. (f64->f8 -> f2) resample 88.4khz using a FIR filter
+	dsd_decode_882(dsdfile, float_out_882, nSamples_per_channel);
 
 	// -3 output to wav
-	wavwrite_float("music v1.wav", &float_out_884[0], nSamples_per_channel / nStep, 1, 44100 * 2);
+	wavwrite_float("music 88.2 .wav", &float_out_882[0], nSamples_per_channel, 2, 44100 * 2);
 
 	// -4 Destory and Free resources
-	FIR_Destory(lpf_882);
-	free(float_out_884[0]);
-	free(float_out_884[1]);
+	dsd_destory(dsdfile);
 	free(float_out_352[0]);
+	free(float_out_882[0]);
+	free(float_out_882[1]);
 
 	return 0;
 }

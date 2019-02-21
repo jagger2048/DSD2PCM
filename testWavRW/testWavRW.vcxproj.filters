@@ -33,7 +33,7 @@
       <Filter>library\dsd2pcm\noise shape test</Filter>
     </ClCompile>
     <ClCompile Include="halfband_test.c">
-      <Filter>source file</Filter>
+      <Filter>library\halfband test</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -52,16 +52,13 @@
     <ClInclude Include="fir_halfband.h">
       <Filter>library\halfband test</Filter>
     </ClInclude>
-    <ClInclude Include="state2.h">
-      <Filter>library\halfband test</Filter>
-    </ClInclude>
     <ClInclude Include="dsd2pcm\noiseshape.h">
       <Filter>library\dsd2pcm\noise shape test</Filter>
     </ClInclude>
     <ClInclude Include="noise_shape_test.h">
       <Filter>library\dsd2pcm\noise shape test</Filter>
     </ClInclude>
-    <ClInclude Include="dsd2pcm_impl.h">
+    <ClInclude Include="state2.h">
       <Filter>library\dsd2pcm</Filter>
     </ClInclude>
   </ItemGroup>
