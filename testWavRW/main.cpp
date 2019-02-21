@@ -25,73 +25,31 @@
 // https://samplerateconverter.com/content/free-samples-dsf-audio-files  dsf demo files.
 // https://www.oppodigital.com/hra/dsd-by-davidelias.aspx
 // http://www.2l.no/hires/index.html
-
-
-;;;
 int main()
 {
 	DSD dsdfile;
-	dsd_read(&dsdfile, "2L-125_stereo-2822k-1b_04.dsf");				// music signal
-	//dsd_read(&dsdfile, "sweep-176400hz-0-22050hz-20s-D64-2.8mhz.dsf");	// sweep signal
-
-	// ========== Decode test ==========//
-	// State 1. ( f64 -> f8 ) 8:1
-	// general 352.8khz signal
 	float *float_out_352[2] = {};											// stereo output
-	size_t nSamplse_per_ch = 0;
-
-	clock_t t1 = clock();
-	dsd_decode(&dsdfile, float_out_352, nSamplse_per_ch);
-	clock_t t2 = clock();
-	printf(" State 1 cost %d ms (%d opints output)\n", t2 - t1, nSamplse_per_ch);
-	//wavwrite_float("v001 - sweep - to processed.wav", float_out_352, nSamplse_per_ch , 1, 44100 * 8 ); // not output
-	
-	// State 2. (f8 -> f2) 4:1
-	// resample 352.8khz to 88.4khz using a FIR filter
-
-	FIR *lpf_882 = FIR_Create( 48, fir_coeffs_state2);
-
-	FIR_Halfband *halfband_352 = fir_halfband_create(48, fir_halfband_coeffs_352);
-	FIR_Halfband *halfband_176 = fir_halfband_create(24, fir_halfband_coeffs_176);
-
 	float *float_out_884[2]{};
-	unsigned int nStep = 2;									// 352->88.2 (f8 -> f2) 4:1
+	size_t nSamples_per_channel = 0;										
+	// -1 Read dsd file
+	dsd_read(&dsdfile, "2L-125_stereo-2822k-1b_04.dsf");					// music signal
 
-	float_out_884[0] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
-	memset(float_out_884[0], 0, sizeof(float)*nSamplse_per_ch / nStep);
-	float_out_884[1] = (float*)malloc(sizeof(float)*nSamplse_per_ch / nStep);
-	memset(float_out_884[1], 0, sizeof(float)*nSamplse_per_ch / nStep);
+	// -2.1 State 1. ( f64 -> f8 ) 8:1	,general 352.8khz signal
+	dsd_decode(&dsdfile, float_out_352, nSamples_per_channel);
+	//wavwrite_float("v001 - sweep - to processed.wav", float_out_352, nSamples_per_channel , 1, 44100 * 8 ); // not output
+	
+	// -2.2 State 2. (f8 -> f2) 4:1		,resample 352.8khz to 88.4khz using a FIR filter
+	FIR *lpf_882 = FIR_Create( 48, fir_coeffs_state2);
+	size_t nStep = 4;
+	float_out_884[0] = (float*)malloc(sizeof(float) * nSamples_per_channel / nStep);
+	float_out_884[1] = (float*)malloc(sizeof(float) * nSamples_per_channel / nStep);
+	FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamples_per_channel, nStep);
 
-	// 对比测试
-	printf( "start to process:\n");
-	clock_t ts = clock();
-	FIR_Process(lpf_882, float_out_352[0], 0, float_out_884[0], 0, nSamplse_per_ch, 4);
-	clock_t te = clock();
+	// -3 output to wav
+	wavwrite_float("music v1.wav", &float_out_884[0], nSamples_per_channel / nStep, 1, 44100 * 2);
 
-	//cout <<  nSamplse_per_ch <<" points in,"<< nSamplse_per_ch  /4 <<" points out; "<< " costs " <<( te - ts) << " ms  - state2 \n";
-	printf(" %d pints in, %d points out; costs %d ms ( state2 FIR )\n", nSamplse_per_ch, nSamplse_per_ch / 4, te - ts);
-	// output to wav
-	wavwrite_float("v001 - music v1.wav", &float_out_884[0], nSamplse_per_ch / 4, 1, 44100 * 2);
-
-	//============//
-	ts = clock();
-	fir_halfband_process(halfband_352, float_out_352[0], float_out_884[0], nSamplse_per_ch, nStep);		// section one
-	fir_halfband_process(halfband_176, float_out_884[0], float_out_884[1], nSamplse_per_ch / 2, nStep);	// section two
-	te = clock();
-
-	printf(" %d pints in, %d points out; costs %d ms ( state2 halfband FIR )\n", nSamplse_per_ch, nSamplse_per_ch / 4, te - ts);
-	//cout << nSamplse_per_ch << " points in," << nSamplse_per_ch / 4 << " points out; " << " costs " << (te - ts) << " ms\n";
-
-
-	// Destory
-	fir_halfband_destory(halfband_352);
-	fir_halfband_destory(halfband_176);
+	// -4 Destory and Free resources
 	FIR_Destory(lpf_882);
-
-	// output to wav
-	wavwrite_float("v001 - music v2.wav", &float_out_884[1], nSamplse_per_ch /4 , 1, 44100 * 2 );
-
-	// Free resources
 	free(float_out_884[0]);
 	free(float_out_884[1]);
 	free(float_out_352[0]);
@@ -117,7 +75,7 @@ About the DSD read method:
 2.	decode dsd data,note that the library decode the dsd data to 352khz float data.
 
 		float *float_out_352[2] = {};	// initialize the output pointer
-		dsd_decode(&dsdfile, float_out_352, nSamplse_per_ch);	// decode the dsd data
+		dsd_decode(&dsdfile, float_out_352, nSamples_per_channel);	// decode the dsd data
 
 3. optional:
 	Resample to other samplerate as showed above.

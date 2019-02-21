@@ -1,43 +1,15 @@
 #pragma once
 #include <stdio.h>
 #include <stdint.h>
-#include "noiseshape.c"
 #include "dsd2pcm.h"
+#ifdef __cplusplus
+extern "C" {
+#endif // _cplusplus
 
-#include <iostream>
-using namespace std;
-
-
-#define CLIP(min,v,max)  ( (v) < (min) )? (min) : ( ( (v) > (max) )? (max) : (v) )
-
-const float my_ns_coeffs[] = {
-	//     b1           b2           a1           a2
-	-1.62666423,  0.79410094,  0.61367127,  0.23311013,  // section 1
-	-1.44870017,  0.54196219,  0.03373857,  0.70316556   // section 2
-};
-
-const int my_ns_soscount = sizeof(my_ns_coeffs) / (sizeof(my_ns_coeffs[0]) * 4);
-
-inline long myround(float x)
-{
-	return (long)(x + (x >= 0 ? 0.5f : -0.5f));
-}
-
-float fir_smpl_circle_f32(int order, float sample, const float* coeffs, float* buffer, unsigned int* state) {
-	float accu = 0.0f;
-	int i = order - 1;
-	buffer[*state] = sample;
-	if (++(*state) >= order) { *state = 0; }
-	for (; i >= 0; --i)
-	{
-		accu += buffer[*state] * coeffs[i];
-		if (++(*state) >= order)
-			*state = 0;
-	}
-	return accu;
-}
-
-struct DSD
+// if have noise shape
+	//	#include "noise_shape_test.h"
+	//  #define HAVE_NOISE_SHAPE
+typedef struct 
 {
 	// uint64_t  a 8 bytes,64 bits unsigned int, 
 	// uint32_t  a 4 bytes,32 bits unsigned int, 
@@ -67,9 +39,23 @@ struct DSD
 								// m bytes meta data chunk if have
 	uint8_t* pSampleData = 0;	// a pointer points to the sample data (byte types)
 	unsigned int nBytes;
-};
+}DSD;
 
-
+DSD* dsd_create() {
+	DSD* handles = (DSD*)malloc(sizeof(DSD));
+	return handles;
+}
+int dsd_destory(DSD* handles) {
+	if (handles !=NULL)
+	{
+		if (handles->pSampleData != NULL) {
+			free(handles->pSampleData);
+		}
+		free(handles);
+		return 0;
+	}
+	return -1;
+}
 
 
 int dsd_read(DSD *dsdfile, const char* file_name) {
@@ -121,11 +107,13 @@ int dsd_read(DSD *dsdfile, const char* file_name) {
 int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 
 	// initialize the noise shape
+#ifdef HAVE_NOISE_SHAPE
 	noise_shape_ctx_s* pNs[2];
 	pNs[0] = (noise_shape_ctx_s *)malloc(sizeof(noise_shape_ctx_s));
 	pNs[1] = (noise_shape_ctx_s *)malloc(sizeof(noise_shape_ctx_s));
 	noise_shape_init(pNs[0], my_ns_soscount, my_ns_coeffs);
 	noise_shape_init(pNs[1], my_ns_soscount, my_ns_coeffs);
+#endif // HAVE_NOISE_SHAPE
 
 	// initialize the decode module
 	dsd2pcm_ctx *d2p[2]{};
@@ -148,9 +136,6 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 	samples_per_ch = dsdfile->nBytes / 2;
 	size_t nFrames = dsdfile->nBytes / (block * channels);
 	size_t upIndex[2] = { 0,0 };
-	
-	// test case : output a 
-
 
 	// decode to 352khz 
 	for (size_t n = 0; n < nFrames; n++)
@@ -167,12 +152,15 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 				1
 			);
 
+#ifdef HAVE_NOISE_SHAPE
+			// Note that noise shape test not pass.
 			// Noise shaping
 			//*(pFloat_out[c] + upIndex[c]) += noise_shape_get(pNs[c]);
 
 			//long smp =CLIP(-32768, myround(*(pFloat_out[c] + upIndex[c]) ) , 32767);
 
 			//noise_shape_update(pNs[c], CLIP(-1, smp - *(pFloat_out[c] + upIndex[c]) , 1) );
+#endif // HAVE_NOISE_SHAPE
 
 			upIndex[c] += block;
 		}
@@ -180,17 +168,44 @@ int dsd_decode(DSD *dsdfile, float *pFloat_out[2], size_t &samples_per_ch) {
 	dsd2pcm_destroy(d2p[0]);
 	dsd2pcm_destroy(d2p[1]);
 
+
+#ifdef HAVE_NOISE_SHAPE
 	noise_shape_destroy(pNs[0]);
 	noise_shape_destroy(pNs[1]);
+#endif // HAVE_NOISE_SHAPE
 
-	samples_per_ch = upIndex[0];
+	samples_per_ch = upIndex[0];		// return the number of samples have been read.
 	return 0;
 }
+
+//dsd_decode_176()
+
+// a fir structure for reference
+float fir_smpl_circle_f32(int order, float sample, const float* coeffs, float* buffer, unsigned int* state) {
+	float accu = 0.0f;
+	int i = order - 1;
+	buffer[*state] = sample;
+	if (++(*state) >= order) { *state = 0; }
+	for (; i >= 0; --i)
+	{
+		accu += buffer[*state] * coeffs[i];
+		if (++(*state) >= order)
+			*state = 0;
+	}
+	return accu;
+}
+
+
+
+#ifdef __cplusplus
+}
+#endif // _cplusplus
 
 
 /* =============================== */
 // to be deleted 
 /*
+
 struct  Biquad
 {
 	float coeffs[2][3]{};
